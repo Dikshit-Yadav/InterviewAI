@@ -5,7 +5,7 @@ import generateToken from "../utils/jwt.js";
 export const registerUser = async (name, email, password, targetRole) => {
 
    if (!name || !email || !password || !targetRole) {
-      return res.status(400).json({ message: "All fields required" });
+      throw new Error("All fields required");
     }
 
   const exists = await User.findOne({ email });

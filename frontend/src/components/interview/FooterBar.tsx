@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import {useNavigate} from "react-router-dom"
+import {interviewService} from "@/services/interviewServices"
 
 type Props = {
   role: string | null
@@ -14,6 +15,21 @@ export default function FooterBar({
 }: Props) {
   const navigate = useNavigate();
   const isReady = role && experience && interviewType
+
+  const handleStart = async () => {
+    try {
+      const res = await interviewService.startInterview({
+        role,
+        experience,
+        interviewType,
+      });
+      console.log(res.interviewId);
+      navigate(`/interview/${res.interviewId}`);
+    } catch (error) {
+      console.error("Failed to start interview:", error);
+    }
+  }
+
   return (
     <div className="flex justify-between items-center border border-gray-800 rounded-xl p-4 bg-[#0b0f2a]">
       <div className="text-sm text-gray-400 space-y-1">
@@ -42,7 +58,7 @@ export default function FooterBar({
       <Button
         disabled={!isReady}
         className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-        onClick={()=> navigate("/interview/session")}
+        onClick={handleStart}
       >
         Start Interview →
       </Button>

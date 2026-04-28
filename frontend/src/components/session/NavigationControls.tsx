@@ -5,14 +5,17 @@ type Props = {
   onPrev: () => void
   onNext: () => void
   onSubmit: () => void
+  onFinish: () => void
   disablePrev?: boolean
+  isLast?: boolean
 }
-
 export default function NavigationControls({
   onPrev,
   onNext,
   onSubmit,
   disablePrev,
+  isLast,
+  onFinish,
 }: Props) {
   return (
     <div className="flex justify-between items-center">
@@ -36,10 +39,10 @@ export default function NavigationControls({
 
         <Button
           variant="outline"
-          onClick={onNext}
+           onClick={isLast ? onFinish : onNext}
           className="border-gray-700"
         >
-          Next
+         {isLast ? "Finish & Get Report" : "Next"}
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>

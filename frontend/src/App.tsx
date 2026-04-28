@@ -6,6 +6,8 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import InterviewPage from "./pages/InterviewPage";
 import SessionPage from "./pages/SessionPage";
+import ReportPage from "./pages/ReportPage";
+
 
 
 function App() {
@@ -19,8 +21,10 @@ function App() {
         <Route element={<ProtectRoutes />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/interview" element={<InterviewPage />} />
-          <Route path="/interview/session" element={<SessionPage />} />
+          <Route path="/interview/:interviewId" element={<SessionPage />} />
+          <Route path="/report/:id" element={<ReportPage />} />
         </Route>
+        
       </Routes>
 
     </BrowserRouter>
