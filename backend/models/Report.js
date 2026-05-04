@@ -8,25 +8,40 @@ const reportSchema = new mongoose.Schema(
       required: true,
     },
 
-    totalScore: {
-      type: Number,
-    },
+    totalScore: Number,
+    averageScore: Number,
 
-    averageScore: {
-      type: Number,
-    },
+    techScore: Number,
+    clarityScore: Number,
+    confidenceScore: Number,
 
-    strengths: {
-      type: String,
-    },
+    summary: String,
 
-    weaknesses: {
-      type: String,
-    },
+    strongTopics: [String],
+    weakTopics: [String],
 
-    suggestions: {
-      type: String,
-    },
+    learningPath: [String],
+
+    tips: [String],
+
+    answers: [
+      {
+        questionId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Question",
+        },
+
+        question: String,
+        userAnswer: String,
+
+        aiEvaluation: {
+          score: Number,
+          strengths: String,
+          weaknesses: String,
+          correctAnswer: String,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

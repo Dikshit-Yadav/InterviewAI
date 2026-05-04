@@ -1,8 +1,8 @@
 import InterviewSession from "../models/InterviewSession.js";
-import Question from "../models/Question.js";
 import Report from "../models/Report.js";
-import { generateQuestions, evaluateAnswer } from "../services/aiService.js";
 import Answer from "../models/Answer.js";
+import Question from "../models/Question.js";
+import { generateQuestions, evaluateAnswer, generateFinalReportAI } from "../services/aiService.js";
 
 export const startInterview = async (req, res) => {
   try {
@@ -71,6 +71,7 @@ export const submitAnswer = async (req, res) => {
       interviewId,
       userAnswer: answer,
       aiEvaluation: evaluation,
+      skill: evaluation.skill,
     });
 
     res.json(saved);
@@ -79,13 +80,18 @@ export const submitAnswer = async (req, res) => {
   }
 };
 
+
 export const generateReport = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const answers = await Answer.find({ interviewId: id });
+    const answers = await Answer.find({ interviewId: id })
+      .populate("questionId")
+      .sort({ createdAt: 1 });
+      console.log(answers.length);
 
-    if (!answers.length) {
+
+    if (answers.length<= 0) {
       return res.status(400).json({ message: "No answers found" });
     }
 
@@ -94,23 +100,42 @@ export const generateReport = async (req, res) => {
       0
     );
 
-    const avgScore = totalScore / answers.length;
+    const averageScore = totalScore / answers.length;
 
-    const strengths = answers.map(a => a.aiEvaluation?.strengths).join(" ");
-    const weaknesses = answers.map(a => a.aiEvaluation?.weaknesses).join(" ");
+    const formattedAnswers = answers.map((a) => ({
+      questionId: a.questionId?._id,
+      question: a.questionId?.questionText,
+      userAnswer: a.userAnswer,
+      aiEvaluation: a.aiEvaluation,
+    }));
+
+    const aiReport = await generateFinalReportAI(formattedAnswers);
 
     const report = await Report.create({
       interviewId: id,
+
       totalScore,
-      averageScore: avgScore,
-      strengths,
-      weaknesses,
-      suggestions: "Practice more and focus on weak areas.",
+      averageScore,
+
+      techScore: aiReport.techScore,
+      clarityScore: aiReport.clarityScore,
+      confidenceScore: aiReport.confidenceScore,
+
+      summary: aiReport.summary,
+
+      strongTopics: aiReport.strongTopics,
+      weakTopics: aiReport.weakTopics,
+
+      learningPath: aiReport.learningPath,
+      tips: aiReport.tips,
+
+      answers: formattedAnswers,
     });
-    console.log(report)
+
     res.json(report);
 
   } catch (err) {
+    console.error("Report Error:", err);
     res.status(500).json({ message: err.message });
   }
 };

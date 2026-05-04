@@ -1,14 +1,10 @@
-import { Progress } from "@/components/ui/progress"
-import { Clock } from "lucide-react"
-
 type Props = {
   current: number
   total: number
   timeLeft: string
 }
 
-export default function ProgressHeader({ current, total, timeLeft }: Props) {
-  const progress = (current / total) * 100
+export default function ProgressHeader({ current, total }: Props) {
 
   return (
     <div className="space-y-3">
@@ -17,13 +13,8 @@ export default function ProgressHeader({ current, total, timeLeft }: Props) {
           Question {current} of {total}
         </span>
 
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          <span>{timeLeft}</span>
-        </div>
       </div>
 
-      <Progress value={progress} className="h-2 bg-gray-800" />
     </div>
   )
 }

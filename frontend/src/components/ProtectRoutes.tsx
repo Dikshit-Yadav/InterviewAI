@@ -10,7 +10,9 @@ const ProtectedRoutes = () => {
   const fetchMe = async () => {
     try {
       const data = await AuthService.isme();
-      sessionStorage.setItem("user", JSON.stringify(data.user.name));
+      sessionStorage.setItem("name", JSON.stringify(data.user.name));
+      sessionStorage.setItem("role", JSON.stringify(data.user.targetRole));
+      sessionStorage.setItem("email", JSON.stringify(data.user.email));
       console.log(data);
       if (data.isauthenticate) {
         setUser(data.user);

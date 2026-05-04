@@ -3,33 +3,65 @@ import Report from "../models/Report.js";
 import Answer from "../models/Answer.js";
 
 export const getDashboard = async (req, res) => {
-  try {
-    const userId = req.user.id;
+    try {
+        const userId = req.user.id;
+        const sessions = await InterviewSession.find({ userId }).select("_id");
+         const sessionIds = sessions.map(s => s._id);
+        const totalInterviews = await InterviewSession.countDocuments({ userId });
+        const answers = await Answer.find({ interviewId: { $in: sessionIds } });
+        const skillMap = {};
 
-    const totalInterviews = await InterviewSession.countDocuments({ userId });
+        answers.forEach((a) => {
+            const skill = a.skill || "Other";
 
-   
-    const sessions = await InterviewSession.find({ userId }).select("_id");
+            if (!skillMap[skill]) {
+                skillMap[skill] = { total: 0, count: 0 };
+            }
 
-    const sessionIds = sessions.map(s => s._id);
+            skillMap[skill].total += a.aiEvaluation?.score || 0;
+            skillMap[skill].count += 1;
+        });
 
-    const reports = await Report.find({ interviewId: { $in: sessionIds } });
+        const skillBreakdown = Object.keys(skillMap).map((skill) => ({
+            skill,
+            score: skillMap[skill].total / skillMap[skill].count,
+        }));
 
-    
-    const avgScore =
-      reports.reduce((sum, r) => sum + (r.averageScore || 0), 0) /
-      (reports.length || 1);
 
-    
-    const recentReports = reports.slice(-5);
 
-    res.json({
-      totalInterviews,
-      avgScore,
-      recentReports,
-    });
+       
 
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+        const reports = await Report.find({ interviewId: { $in: sessionIds } });
+
+
+        const avgScore =
+            reports.reduce((sum, r) => sum + (r.averageScore || 0), 0) /
+            (reports.length || 1);
+
+
+        const recentReports = reports.slice(-5);
+
+        res.json({
+            totalInterviews,
+            avgScore,
+            recentReports,
+            skillBreakdown,
+        });
+
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 };
+
+export const getHistory = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const sessions = await InterviewSession.find({ userId })
+            .sort({ createdAt: -1 });
+
+        res.json(sessions);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};  

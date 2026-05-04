@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import InterviewPage from "./pages/InterviewPage";
 import SessionPage from "./pages/SessionPage";
 import ReportPage from "./pages/ReportPage";
+import Profile from "./pages/Profile";
 
 
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="/interview" element={<InterviewPage />} />
           <Route path="/interview/:interviewId" element={<SessionPage />} />
           <Route path="/report/:id" element={<ReportPage />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
         
       </Routes>

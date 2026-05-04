@@ -20,4 +20,8 @@ export const interviewService = {
         const res = await API.post(`/interview/generate-report/${interviewId}`);
         return res.data;
     },
+    getHistory: async () => {
+      const res = await API.get("/history");
+      return res.data;
+    },
 }

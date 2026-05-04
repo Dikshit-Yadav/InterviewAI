@@ -13,6 +13,9 @@ const answerSchema = new mongoose.Schema(
       ref: "InterviewSession",
       required: true,
     },
+    skill: {
+      type: String,
+    },
 
     userAnswer: {
       type: String,
