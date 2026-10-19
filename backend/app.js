@@ -8,10 +8,12 @@ import cookieParser from "cookie-parser";
 import interviewRoutes from "./routes/interviewRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js"
 import profileRoutes from "./routes/profileRoutes.js";
+import requestLogger from "./middlewares/requestLogger.js";
+import errorHandler from "./middlewares/errorHandler.js";
 
 
 const app = express();
-// console.log(process.env.CLIENT_URL);
+app.use(requestLogger);
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -29,5 +31,10 @@ app.use("/profile", profileRoutes);
 app.get("/", (req, res) => {
   res.send("api running");
 });
+
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+app.use(errorHandler);
 
 export default app;

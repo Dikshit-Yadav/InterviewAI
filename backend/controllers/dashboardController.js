@@ -1,6 +1,7 @@
 import InterviewSession from "../models/InterviewSession.js";
 import Report from "../models/Report.js";
 import Answer from "../models/Answer.js";
+import logger from "../utils/logger.js";
 
 export const getDashboard = async (req, res) => {
     try {
@@ -49,6 +50,7 @@ export const getDashboard = async (req, res) => {
         });
 
     } catch (err) {
+        logger.error({ err, requestId: req.id }, "Dashboard request failed");
         res.status(500).json({ message: err.message });
     }
 };
@@ -62,6 +64,7 @@ export const getHistory = async (req, res) => {
 
         res.json(sessions);
     } catch (err) {
+        logger.error({ err, requestId: req.id }, "Interview history request failed");
         res.status(500).json({ message: err.message });
     }
 };  

@@ -25,6 +25,8 @@
     "mic": "^2.1.2",
     "mongoose": "^9.5.0",
     "openai": "^6.34.0",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

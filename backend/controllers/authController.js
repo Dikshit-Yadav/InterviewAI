@@ -5,6 +5,7 @@ import {
   registerUser,
   loginUser,
 } from "../services/authServices.js";
+import logger from "../utils/logger.js";
 
 const authCookieOptions = () => ({
   httpOnly: true,
@@ -56,7 +57,6 @@ export const login = async (req, res) => {
 
   } catch (err) {
     res.status(401).json({ message: err.message });
-    // console.log(err.message)
   }
 };
 
@@ -66,7 +66,7 @@ export const googleLogin = (req, res) => {
     res.cookie("google_oauth_state", state, googleStateCookieOptions());
     return res.redirect(getGoogleAuthorizationUrl(state));
   } catch (err) {
-    console.error("Google OAuth initialization failed:", err);
+    logger.error({ err, requestId: req.id }, "Google OAuth initialization failed");
     return res.status(503).json({ message: "Google sign-in is unavailable" });
   }
 };
@@ -106,7 +106,7 @@ export const googleCallback = async (req, res) => {
     res.cookie("token", data.token, authCookieOptions());
     return res.redirect(new URL("/dashboard", process.env.CLIENT_URL).toString());
   } catch (err) {
-    console.error("Google OAuth callback failed:", err);
+    logger.error({ err, requestId: req.id }, "Google OAuth callback failed");
     return redirectToLoginWithError(res, "google_auth_failed");
   }
 };
@@ -121,6 +121,7 @@ export const isme = (req, res) => {
     }
     res.status(200).json({ user: req.user, isauthenticate: true });
   } catch (err) {
+    logger.error({ err, requestId: req.id }, "Authentication status check failed");
     res.status(500).json({ message: err.message });
   }
 };
@@ -130,6 +131,7 @@ export const logout = (req, res) => {
     res.clearCookie("token", authCookieOptions());
     res.status(200).json({ message: "Logout successful" });
   } catch (err) {
+    logger.error({ err, requestId: req.id }, "Logout failed");
     res.status(500).json({ message: err.message });
   }
 };

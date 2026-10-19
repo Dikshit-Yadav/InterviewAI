@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Groq } from 'groq-sdk';
+import logger from "../utils/logger.js";
 // import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -48,11 +49,10 @@ No markdown. No explanation. Only JSON.
     const text = response.choices[0].message.content;
 
     const data = JSON.parse(text);
-    // console.log(data)
     return data.questions;
 
   } catch (error) {
-    console.error("AI Error:", error);
+    logger.error({ err: error }, "Question generation failed");
     throw new Error(error.message);
   }
 };
@@ -118,7 +118,7 @@ No markdown. No explanation. Only JSON.
       };
     });
   } catch (error) {
-    console.error("AI Batch Evaluation Error:", error);
+    logger.error({ err: error }, "AI answer evaluation failed");
     throw new Error(error.message);
   }
 };
@@ -159,7 +159,7 @@ Return strictly JSON:
     return JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
 
   } catch (error) {
-    console.error("Final AI Report Error:", error);
+    logger.error({ err: error }, "AI report generation failed");
     throw new Error(error.message);
   }
 };
@@ -192,7 +192,6 @@ Return strictly JSON:
 //     return JSON.parse(data);
 
 //   } catch (error) {
-//     console.error("AI Error:", error);
 //     throw new Error(error.message);
 //   }
 // };
@@ -225,7 +224,6 @@ Return strictly JSON:
 //     return JSON.parse(data);
 
 //   } catch (error) {
-//     console.error("AI Evaluation Error:", error);
 //     throw new Error(error.message);
 //   }
 // };
@@ -272,7 +270,6 @@ Return strictly JSON:
 //     return JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
 
 //   } catch (error) {
-//     console.error("Final AI Report Error:", error);
 //     throw new Error(error.message);
 //   }
 // };

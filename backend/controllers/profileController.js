@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import logger from "../utils/logger.js";
 
 export const updateProfile = async (req, res) => {
   try {
@@ -20,6 +21,7 @@ export const updateProfile = async (req, res) => {
       targetRole: user.targetRole,
     });
   } catch (err) {
+    logger.error({ err, requestId: req.id }, "Profile update failed");
     res.status(500).json({ message: err.message });
   }
 };
