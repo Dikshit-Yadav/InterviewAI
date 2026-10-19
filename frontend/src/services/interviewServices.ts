@@ -12,8 +12,12 @@ export const interviewService = {
         return res.data;
     },
 
-    submitAnswer: async (data: any) => {
-        const res = await API.post("/interview/submit-answer", data);
+    // sends ALL answers at once; backend evaluates them with AI and returns the report
+    submitInterview: async (
+        interviewId: string,
+        answers: { questionId: string; answer: string }[]
+    ) => {
+        const res = await API.post(`/interview/submit/${interviewId}`, { answers });
         return res.data;
     },
     generateReport: async (interviewId: string) => {

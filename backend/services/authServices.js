@@ -24,7 +24,6 @@ export const registerUser = async (name, email, password, targetRole) => {
     id: user._id,
     name: user.name,
     email: user.email,
-    password: user.password,
     targetRole: user.targetRole,
   };
 };

@@ -1,8 +1,9 @@
 import {
   createInterviewSession,
   fetchInterviewQuestions,
-  submitAnswerService,
   generateReportService,
+  submitInterviewService,
+  assertInterviewOwner,
 } from "../services/interviewServices.js";
 
 export const startInterview = async (req, res) => {
@@ -31,42 +32,39 @@ export const getQuestions = async (req, res) => {
   try {
     const { id } = req.params;
 
+    await assertInterviewOwner(req.user.id, id);
     const questions = await fetchInterviewQuestions(id);
 
     res.status(200).json(questions);
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
-
-export const submitAnswer = async (req, res) => {
-  try {
-    const { questionId, interviewId, answer } = req.body;
-
-    const result = await submitAnswerService(
-      questionId,
-      interviewId,
-      answer
-    );
-
-    res.status(200).json(result);
-
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-};
-
 
 export const generateReport = async (req, res) => {
   try {
     const { id } = req.params;
 
+    await assertInterviewOwner(req.user.id, id);
     const report = await generateReportService(id);
 
     res.status(200).json(report);
 
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(err.status || 400).json({ message: err.message });
+  }
+};
+export const submitInterview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { answers } = req.body;
+
+    const report = await submitInterviewService(req.user.id, id, answers);
+
+    res.status(200).json(report);
+
+  } catch (err) {
+    res.status(err.status || 400).json({ message: err.message });
   }
 };

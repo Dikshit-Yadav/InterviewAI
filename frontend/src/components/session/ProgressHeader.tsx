@@ -1,10 +1,11 @@
 type Props = {
   current: number
   total: number
+  answered?: number
   timeLeft: string
 }
 
-export default function ProgressHeader({ current, total }: Props) {
+export default function ProgressHeader({ current, total, answered }: Props) {
 
   return (
     <div className="space-y-3">
@@ -13,6 +14,11 @@ export default function ProgressHeader({ current, total }: Props) {
           Question {current} of {total}
         </span>
 
+        {answered !== undefined && (
+          <span>
+            {answered}/{total} answered
+          </span>
+        )}
       </div>
 
     </div>

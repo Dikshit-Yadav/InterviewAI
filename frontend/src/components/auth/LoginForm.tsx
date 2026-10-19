@@ -10,6 +10,7 @@ export default function LoginForm() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const submit = async () => {
     if (!email && !password) {
@@ -36,16 +37,21 @@ export default function LoginForm() {
       toast.error("Please enter a valid email");
       return;
     }
+    if (loading) return;
+    setLoading(true);
+
     try {
       const data = { email, password };
-      const res = await AuthService.login(data);
+      await AuthService.login(data);
 
       toast.success("Login successful!");
       navigate("/dashboard");
 
-    } catch (err) {
-      toast.error(err.response.data.message);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Something went wrong. Please try again.");
       console.log(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,8 +90,8 @@ export default function LoginForm() {
       </div>
 
       {/* btn */}
-      <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit}>
-        Sign in →
+      <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit} loading={loading}>
+        {loading ? "Signing in..." : "Sign in →"}
       </Button>
 
       {/* footer */}

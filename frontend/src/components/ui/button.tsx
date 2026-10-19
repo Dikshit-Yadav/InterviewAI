@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
+import { LoaderCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -46,10 +47,15 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  loading = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /** shows a spinner, disables the button and ignores further clicks */
+    loading?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
 
@@ -58,9 +64,24 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        // a loading button should look busy, not greyed out like a disabled one
+        "disabled:aria-[busy=true]:opacity-80"
+      )}
       {...props}
-    />
+    >
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+          {children}
+        </>
+      )}
+    </Comp>
   )
 }
 

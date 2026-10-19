@@ -1,25 +1,46 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import {useNavigate} from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import ProgressHeader from "@/components/session/ProgressHeader";
 import QuestionCard from "@/components/session/QuestionCard";
 import AnswerBox from "@/components/session/AnswerBox";
 import NavigationControls from "@/components/session/NavigationControls";
 
-import { interviewService } from "@/services/interviewServices"
+import { interviewService } from "@/services/interviewServices";
+
+type Question = {
+  _id: string;
+  questionText: string;
+  order: number;
+};
+
+// answers are kept in state (and mirrored to localStorage so a refresh
+// doesn't lose them) until the user finishes the last question.
+const draftKey = (interviewId?: string) => `interview-draft-${interviewId}`;
+
+const loadDraft = (interviewId?: string): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(draftKey(interviewId)) || "{}");
+  } catch {
+    return {};
+  }
+};
 
 export default function SessionPage() {
   const navigate = useNavigate();
   const { interviewId } = useParams();
 
-
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const isLastQuestion = currentIndex === questions.length - 1;
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>(() =>
+    loadDraft(interviewId)
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const currentQuestion = questions[currentIndex];
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const answeredCount = questions.filter((q) => answers[q._id]?.trim()).length;
 
   useEffect(() => {
     if (!interviewId) {
@@ -28,12 +49,23 @@ export default function SessionPage() {
     }
 
     const fetchQuestions = async () => {
-      const data = await interviewService.getQuestions(interviewId);
-      setQuestions(data);
+      try {
+        const data = await interviewService.getQuestions(interviewId);
+        setQuestions(data);
+      } catch (err) {
+        console.error("Failed to load questions", err);
+        setError("Could not load the questions. Please refresh the page.");
+      }
     };
 
     fetchQuestions();
   }, [interviewId]);
+
+  // keep the draft in localStorage
+  useEffect(() => {
+    if (!interviewId) return;
+    localStorage.setItem(draftKey(interviewId), JSON.stringify(answers));
+  }, [answers, interviewId]);
 
   const handleAnswerChange = (val: string) => {
     if (!currentQuestion) return;
@@ -42,16 +74,6 @@ export default function SessionPage() {
       ...prev,
       [currentQuestion._id]: val,
     }));
-  };
-
-  const handleFinish = async () => {
-    try {
-      const res = await interviewService.generateReport(interviewId);
-
-      navigate(`/report/${interviewId}`);
-    } catch (err) {
-      console.error("Report generation failed", err);
-    }
   };
 
   const handleNext = () => {
@@ -66,29 +88,54 @@ export default function SessionPage() {
     }
   };
 
-  const handleSubmit = async () => {
+  // runs once, on the last question: send every answer to the backend,
+  // which sends them to the AI and returns the finished report.
+  const handleFinish = async () => {
+    if (!interviewId || submitting) return;
+
+    if (answeredCount === 0) {
+      setError("Write at least one answer before finishing.");
+      return;
+    }
+
+    const unanswered = questions.length - answeredCount;
+    if (
+      unanswered > 0 &&
+      !window.confirm(
+        `${unanswered} question(s) are unanswered and will score 0. Submit anyway?`
+      )
+    ) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
     try {
-      const answer = answers[currentQuestion._id];
-
-      if (!answer) {
-        alert("Please write an answer first");
-        return;
-      }
-
-      await interviewService.submitAnswer({
-        questionId: currentQuestion._id,
+      await interviewService.submitInterview(
         interviewId,
-        answer,
-      });
+        questions.map((q) => ({
+          questionId: q._id,
+          answer: (answers[q._id] ?? "").trim(),
+        }))
+      );
 
-      alert("Answer submitted!");
-    } catch (err) {
+      localStorage.removeItem(draftKey(interviewId));
+      navigate(`/report/${interviewId}`);
+    } catch (err: any) {
       console.error("Submit failed", err);
+      setError(
+        err?.response?.data?.message ||
+          "Something went wrong while evaluating your answers. Your answers are still saved - please try again."
+      );
+      setSubmitting(false);
     }
   };
 
   if (!questions.length) {
-    return <div className="text-white p-10">Loading...</div>;
+    return (
+      <div className="text-white p-10">{error ?? "Loading..."}</div>
+    );
   }
 
   return (
@@ -98,6 +145,7 @@ export default function SessionPage() {
         <ProgressHeader
           current={currentIndex + 1}
           total={questions.length}
+          answered={answeredCount}
           timeLeft="3:53"
         />
 
@@ -108,17 +156,25 @@ export default function SessionPage() {
         />
 
         <AnswerBox
+          key={currentQuestion._id}
           value={answers[currentQuestion._id] || ""}
           onChange={handleAnswerChange}
         />
 
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {submitting && (
+          <p className="text-sm text-gray-400">
+            Evaluating your answers with AI - this can take a few seconds...
+          </p>
+        )}
+
         <NavigationControls
           onPrev={handlePrev}
           onNext={handleNext}
-          isLast={isLastQuestion}
           onFinish={handleFinish}
-          onSubmit={handleSubmit}
+          isLast={isLastQuestion}
           disablePrev={currentIndex === 0}
+          submitting={submitting}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { Textarea } from "@/components/ui/textarea"
 import { Mic } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 
 type Props = {
   value: string
@@ -12,6 +12,11 @@ export default function AnswerBox({ value, onChange }: Props) {
 
   const recognitionRef = useRef<any>(null)
   const finalTextRef = useRef("")
+
+  // stop the mic when this box unmounts (next/previous question, leaving page)
+  useEffect(() => {
+    return () => recognitionRef.current?.stop()
+  }, [])
 
   const handleVoice = () => {
     const SpeechRecognition =

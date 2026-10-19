@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { useState } from "react"
 import {useNavigate} from "react-router-dom"
 import {interviewService} from "@/services/interviewServices"
 
@@ -15,8 +16,12 @@ export default function FooterBar({
 }: Props) {
   const navigate = useNavigate();
   const isReady = role && experience && interviewType
+  const [loading, setLoading] = useState(false)
 
   const handleStart = async () => {
+    if (loading) return
+    setLoading(true)
+
     try {
       const res = await interviewService.startInterview({
         role,
@@ -27,6 +32,7 @@ export default function FooterBar({
       navigate(`/interview/${res.interviewId}`);
     } catch (error) {
       console.error("Failed to start interview:", error);
+      setLoading(false);
     }
   }
 
@@ -57,10 +63,11 @@ export default function FooterBar({
 
       <Button
         disabled={!isReady}
+        loading={loading}
         className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
         onClick={handleStart}
       >
-        Start Interview →
+        {loading ? "Preparing your interview..." : "Start Interview →"}
       </Button>
     </div>
   )

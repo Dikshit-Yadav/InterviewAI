@@ -2,7 +2,23 @@ import InterviewSession from "../models/InterviewSession.js";
 import Answer from "../models/Answer.js";
 import Question from "../models/Question.js";
 import Report from "../models/Report.js";
-import { generateQuestions, evaluateAnswer, generateFinalReportAI } from "./aiService.js";
+import mongoose from "mongoose";
+import { generateQuestions, evaluateAllAnswers, generateFinalReportAI } from "./aiService.js";
+
+const httpError = (status, message) => Object.assign(new Error(message), { status });
+
+// throws 400/404/403 unless the interview exists and belongs to userId
+export const assertInterviewOwner = async (userId, interviewId) => {
+    if (!mongoose.isValidObjectId(interviewId)) {
+        throw httpError(400, "Invalid interview id");
+    }
+
+    const session = await InterviewSession.findById(interviewId);
+    if (!session) throw httpError(404, "Interview not found");
+    if (!session.userId.equals(userId)) throw httpError(403, "Not allowed");
+
+    return session;
+};
 
 export const createInterviewSession = async (userId, role, experience, interviewType) => {
     if (!role || !experience || !interviewType) {
@@ -36,38 +52,12 @@ export const fetchInterviewQuestions = async (interviewId) => {
 };
 
 
-export const submitAnswerService = async (questionId, interviewId, answer) => {
-    if (!questionId || !interviewId || !answer) {
-        throw new Error("All fields required");
-    }
-
-    const question = await Question.findById(questionId);
-
-    if (!question) {
-        throw new Error("Question not found");
-    }
-
-    const evaluation = await evaluateAnswer(
-        question.questionText,
-        answer
-    );
-
-    const saved = await Answer.create({
-        questionId,
-        interviewId,
-        userAnswer: answer,
-        aiEvaluation: evaluation,
-        skill: evaluation.skill,
-    });
-
-    return saved;
-};
-
-
 export const generateReportService = async (interviewId) => {
     const answers = await Answer.find({ interviewId })
         .populate("questionId")
         .sort({ createdAt: 1 });
+
+    answers.sort((a, b) => (a.questionId?.order ?? 0) - (b.questionId?.order ?? 0));
 
     if (!answers.length) {
         throw new Error("No answers found");
@@ -81,7 +71,7 @@ export const generateReportService = async (interviewId) => {
         0
     );
 
-    const averageScore = totalScore / answers.length;
+    const averageScore = Math.round((totalScore / answers.length) * 10) / 10;
 
     const formattedAnswers = answers.map((a) => ({
         questionId: a.questionId?._id,
@@ -112,6 +102,80 @@ export const generateReportService = async (interviewId) => {
 
         answers: formattedAnswers,
     });
+
+    return report;
+};
+
+// Receives ALL answers at once, evaluates them with the AI in one call,
+// saves them, builds the final report and marks the interview completed.
+// answers: [{ questionId, answer }]
+export const submitInterviewService = async (userId, interviewId, answers) => {
+    if (!Array.isArray(answers) || !answers.length) {
+        throw httpError(400, "Answers are required");
+    }
+
+    const session = await assertInterviewOwner(userId, interviewId);
+
+    // double-click / retry after success: just return the finished report
+    if (session.status === "completed") {
+        return generateReportService(interviewId);
+    }
+
+    const questions = await Question.find({ interviewId }).sort({ order: 1 });
+    if (!questions.length) throw httpError(404, "No questions found for this interview");
+
+    // only trust question ids that really belong to this interview
+    const answerByQuestion = new Map(
+        answers.map((a) => [
+            String(a?.questionId),
+            typeof a?.answer === "string" ? a.answer.trim() : "",
+        ])
+    );
+
+    const rows = questions.map((q) => ({
+        question: q,
+        answer: answerByQuestion.get(String(q._id)) || "",
+    }));
+
+    const answered = rows.filter((r) => r.answer);
+    if (!answered.length) {
+        throw httpError(400, "Answer at least one question before submitting");
+    }
+
+    // 1 AI call for every answered question (skipped ones are not sent)
+    const evaluations = await evaluateAllAnswers(
+        {
+            role: session.role,
+            experience: session.experience,
+            interviewType: session.interviewType,
+        },
+        answered.map((r) => ({ question: r.question.questionText, answer: r.answer }))
+    );
+
+    let next = 0;
+    const docs = rows.map((r) => {
+        const evaluation = r.answer
+            ? evaluations[next++]
+            : { score: 0, strengths: "", weaknesses: "No answer was provided.", correctAnswer: "" };
+
+        return {
+            questionId: r.question._id,
+            interviewId,
+            userAnswer: r.answer || "(No answer provided)",
+            aiEvaluation: evaluation,
+            skill: r.answer ? evaluation.skill : undefined,
+        };
+    });
+
+    // replace anything from an earlier failed attempt so a retry is safe
+    await Answer.deleteMany({ interviewId });
+    await Report.deleteMany({ interviewId });
+    await Answer.insertMany(docs);
+
+    const report = await generateReportService(interviewId);
+
+    session.status = "completed";
+    await session.save();
 
     return report;
 };

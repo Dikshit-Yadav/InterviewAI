@@ -12,6 +12,7 @@ export default function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [targetRole, setTargetRole] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const submit = async () => {
     if (!name && !email && !password && !targetRole) {
@@ -36,16 +37,21 @@ export default function RegisterForm() {
       toast.error("Please enter a valid email");
       return;
     }
+    if (loading) return;
+    setLoading(true);
+
     try {
       const data = { name, email, password, targetRole };
-      const res = await AuthService.register(data);
+      await AuthService.register(data);
 
       toast.success("Registration successful!");
       navigate("/login");
 
-    } catch (err) {
-      toast.error(err.response.data.message);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Something went wrong. Please try again.");
       console.log(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,8 +120,8 @@ export default function RegisterForm() {
       </div>
 
       {/* btn */}
-      <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit}>
-        Create account →
+      <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit} loading={loading}>
+        {loading ? "Creating account..." : "Create account →"}
       </Button>
 
       {/* footer */}
