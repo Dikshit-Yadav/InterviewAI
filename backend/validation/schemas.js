@@ -33,6 +33,19 @@ export const registerBodySchema = z.object({
   targetRole: roleSchema,
 });
 
+export const emailBodySchema = z.object({ email: emailSchema });
+
+export const verifyEmailOtpBodySchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code"),
+});
+
+export const resetPasswordBodySchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code"),
+  password: passwordSchema,
+});
+
 export const profileBodySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
   targetRole: roleSchema,

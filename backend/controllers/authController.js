@@ -4,6 +4,10 @@ import {
   loginWithGoogleCode,
   registerUser,
   loginUser,
+  sendRegistrationOtp,
+  verifyRegistrationOtp,
+  requestPasswordReset,
+  resetPassword,
 } from "../services/authServices.js";
 import logger from "../utils/logger.js";
 
@@ -42,7 +46,66 @@ export const register = async (req, res) => {
     );
     res.status(201).json(data);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+    if (
+      ["All fields required", "Verify your email before creating an account", "User already exists"]
+        .includes(err.message)
+    ) {
+      return res.status(400).json({ message: err.message });
+    }
+    logger.error({ err, requestId: req.id }, "Registration failed");
+    return res.status(500).json({ message: "Could not create account" });
+  }
+};
+
+export const sendRegistrationCode = async (req, res) => {
+  try {
+    await sendRegistrationOtp(req.body.email);
+    return res.status(200).json({ message: "Verification code sent" });
+  } catch (err) {
+    if (err.message.includes("wait")) {
+      return res.status(429).json({ message: err.message });
+    }
+    if (err.message.includes("already exists")) {
+      return res.status(409).json({ message: err.message });
+    }
+    logger.error({ err, requestId: req.id }, "Registration OTP delivery failed");
+    return res.status(503).json({ message: "Could not send the verification code" });
+  }
+};
+
+export const verifyRegistrationCode = async (req, res) => {
+  try {
+    await verifyRegistrationOtp(req.body.email, req.body.code);
+    return res.status(200).json({ message: "Email verified" });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+};
+
+export const sendPasswordResetCode = async (req, res) => {
+  try {
+    await requestPasswordReset(req.body.email);
+    return res.status(200).json({
+      message: "If an account exists for this email, a reset code has been sent",
+    });
+  } catch (err) {
+    if (err.message.includes("wait")) {
+      return res.status(429).json({ message: err.message });
+    }
+    logger.error({ err, requestId: req.id }, "Password reset OTP delivery failed");
+    return res.status(503).json({ message: "Could not send the reset code" });
+  }
+};
+
+export const completePasswordReset = async (req, res) => {
+  try {
+    await resetPassword(req.body.email, req.body.code, req.body.password);
+    return res.status(200).json({ message: "Password reset successful" });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
   }
 };
 

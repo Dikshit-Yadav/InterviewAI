@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  emailVerified: {
+    type: Boolean,
+    default: true,
+  },
   targetRole: {
     type: String,
     required: true,

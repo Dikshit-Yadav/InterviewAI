@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService"
 import {toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
-import { registerSchema } from "@/lib/validation";
+import { emailOnlySchema, registerSchema } from "@/lib/validation";
 
 import { useState } from "react";
 
@@ -15,6 +15,48 @@ export default function RegisterForm() {
   const [password, setPassword] = useState("");
   const [targetRole, setTargetRole] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const currentEmailVerified =
+    verifiedEmail !== "" && verifiedEmail === email.trim().toLowerCase();
+
+  const requestCode = async () => {
+    const validation = emailOnlySchema.safeParse({ email });
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
+      return;
+    }
+    if (sendingCode) return;
+    setSendingCode(true);
+    try {
+      await AuthService.sendRegistrationCode(validation.data.email);
+      setCodeSent(true);
+      setVerifiedEmail("");
+      setOtp("");
+      toast.success("Verification code sent to your email.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Could not send verification code.");
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    if (verifyingCode) return;
+    setVerifyingCode(true);
+    try {
+      await AuthService.verifyRegistrationCode(email, otp);
+      setVerifiedEmail(email.trim().toLowerCase());
+      toast.success("Email verified.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Could not verify the code.");
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
 
   const submit = async () => {
     const validation = registerSchema.safeParse({
@@ -25,6 +67,10 @@ export default function RegisterForm() {
     });
     if (!validation.success) {
       toast.error(validation.error.issues[0].message);
+      return;
+    }
+    if (verifiedEmail !== validation.data.email.toLowerCase()) {
+      toast.error("Verify your email before creating an account.");
       return;
     }
     if (loading) return;
@@ -70,13 +116,62 @@ export default function RegisterForm() {
       {/* email */}
       <div className="mb-4">
         <label className="text-sm text-gray-300">Email</label>
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@university.edu"
-          className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
-        />
+        <div className="mt-2 flex gap-2">
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setCodeSent(false);
+              setVerifiedEmail("");
+              setOtp("");
+            }}
+            placeholder="you@university.edu"
+            className="bg-black/40 border-white/10 text-white placeholder:text-gray-500"
+            autoComplete="email"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto shrink-0 border-border text-foreground"
+            onClick={requestCode}
+            loading={sendingCode}
+            disabled={currentEmailVerified}
+          >
+            {currentEmailVerified
+              ? "Verified"
+              : codeSent
+                ? "Resend code"
+                : "Verify email"}
+          </Button>
+        </div>
+        {codeSent && !currentEmailVerified && (
+          <div className="mt-3 flex gap-2">
+            <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="6-digit code"
+              aria-label="Email verification code"
+              className="bg-black/40 border-white/10 text-white placeholder:text-gray-500"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto shrink-0 border-border text-foreground"
+              onClick={verifyCode}
+              loading={verifyingCode}
+            >
+              Verify code
+            </Button>
+          </div>
+        )}
+        {currentEmailVerified && (
+          <p className="mt-2 text-sm text-success">Email verified</p>
+        )}
       </div>
 
       {/* password */}

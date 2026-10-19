@@ -12,6 +12,20 @@ const passwordSchema = z
     message: "Password must be at least 8 characters",
   });
 
+export const emailOnlySchema = z.object({ email: emailSchema });
+export const emailOtpSchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code"),
+});
+export const passwordResetSchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .pipe(passwordSchema),
+});
+
 export const loginSchema = z
   .object({
     email: z.string().trim(),
