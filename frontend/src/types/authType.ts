@@ -17,3 +17,7 @@ export interface AuthResponse {
   targetRole:string;
   token: string;
 }
+
+export interface LogoutResponse {
+  message: string;
+}

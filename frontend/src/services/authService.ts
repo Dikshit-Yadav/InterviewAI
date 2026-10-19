@@ -21,4 +21,17 @@ export const AuthService = {
         return res.data;
     },
 
+    logout: async () => {
+        const res = await API.post(API_ENDPOINTS.AUTH.LOGOUT);
+        return res.data;
+    },
+
+    googleLogin: () => {
+        const baseURL = API.defaults.baseURL;
+        if (!baseURL) {
+            throw new Error("API URL is not configured");
+        }
+        window.location.assign(new URL(API_ENDPOINTS.AUTH.GOOGLE, baseURL).toString());
+    },
+
 };

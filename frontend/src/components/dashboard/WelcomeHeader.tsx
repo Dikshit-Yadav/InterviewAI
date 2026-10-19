@@ -1,16 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 export default function WelcomeHeader() {
+  const name = JSON.parse(sessionStorage.getItem("name") ?? '"User"');
+  const role = JSON.parse(sessionStorage.getItem("role") ?? '"Candidate"');
   const navigate = useNavigate();
   return (
     <div className="flex justify-between items-center mb-8">
       
       <div>
         <h1 className="text-3xl font-bold">
-          Hi Dikshit
+          Welcome back, {name}!
         </h1>
         <p className="text-gray-400">
-          Targeting Full Stack Developer
+          Targeting {role}
         </p>
       </div>
 

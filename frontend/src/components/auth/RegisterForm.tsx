@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService"
 import {toast } from "react-toastify";
+import GoogleAuthButton from "./GoogleAuthButton";
 
 import { useState } from "react";
 
@@ -123,6 +124,13 @@ export default function RegisterForm() {
       <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit} loading={loading}>
         {loading ? "Creating account..." : "Create account →"}
       </Button>
+
+      <div className="my-5 flex items-center gap-3 text-xs text-gray-500">
+        <span className="h-px flex-1 bg-white/10" />
+        OR
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+      <GoogleAuthButton />
 
       {/* footer */}
       <p className="text-center text-sm text-gray-400 mt-6">
