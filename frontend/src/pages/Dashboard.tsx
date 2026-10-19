@@ -5,7 +5,7 @@ import StatsCards from "@/components/dashboard/StatsCards";
 import PerformanceSection from "@/components/dashboard/PerformanceSection";
 import ReportsSection from "@/components/dashboard/ReportsSection";
 import HistorySection from "@/components/dashboard/HistorySection";
-import Skills from "@/components/dashboard/Skills";
+// import Skills from "@/components/dashboard/Skills";
 import { getDashboard } from "@/services/dashboardService";
 import { interviewService } from "@/services/interviewServices";
 
@@ -41,7 +41,7 @@ export default function Dashboard() {
         <WelcomeHeader />
 
         <StatsCards data={dashboardData} />
-        <Skills data={dashboardData.skillBreakdown} />
+        {/* <Skills data={dashboardData.skillBreakdown} /> */}
         <div className="grid md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
             <PerformanceSection reports={dashboardData.recentReports} />

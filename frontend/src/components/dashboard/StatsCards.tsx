@@ -6,8 +6,8 @@ export default function StatsCards({ data }: Props) {
   const stats = [
     { title: "Interviews", value: data.totalInterviews },
     { title: "Average score", value: data.avgScore?.toFixed(1) },
-    { title: "Strongest skill", value: "NodeJs" },
-    { title: "Weakest skill", value: "java" },
+    { title: "Strongest skill", value: data.skillBreakdown[0].skill },
+    { title: "Weakest skill", value: data.skillBreakdown[data.skillBreakdown.length - 1].skill},
   ];
 
   return (
