@@ -1,14 +1,21 @@
 import { API, API_ENDPOINTS } from "../api/axios";
+import {
+    interviewIdSchema,
+    interviewStartSchema,
+    submitAnswersSchema,
+    type InterviewStartData,
+} from "@/lib/validation";
 
 export const interviewService = {
-    startInterview: async (data: any) => {
-        const res = await API.post(API_ENDPOINTS.INTERVIEW.START, data);
+    startInterview: async (data: InterviewStartData) => {
+        const validated = interviewStartSchema.parse(data);
+        const res = await API.post(API_ENDPOINTS.INTERVIEW.START, validated);
         return res.data;
     },
     getQuestions: async (id: string) => {
-        if (!id) throw new Error("Interview ID missing");
+        const validatedId = interviewIdSchema.parse(id);
 
-        const res = await API.get(`/interview/questions/${id}`);
+        const res = await API.get(`/interview/questions/${validatedId}`);
         return res.data;
     },
 
@@ -17,11 +24,14 @@ export const interviewService = {
         interviewId: string,
         answers: { questionId: string; answer: string }[]
     ) => {
-        const res = await API.post(`/interview/submit/${interviewId}`, { answers });
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const validatedAnswers = submitAnswersSchema.parse({ answers });
+        const res = await API.post(`/interview/submit/${validatedId}`, validatedAnswers);
         return res.data;
     },
     generateReport: async (interviewId: string) => {
-        const res = await API.post(`/interview/generate-report/${interviewId}`);
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const res = await API.post(`/interview/generate-report/${validatedId}`);
         return res.data;
     },
     getHistory: async () => {

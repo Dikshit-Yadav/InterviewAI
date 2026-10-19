@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import {useNavigate} from "react-router-dom"
 import {interviewService} from "@/services/interviewServices"
+import { toast } from "react-toastify"
+import { interviewStartSchema } from "@/lib/validation"
 
 type Props = {
   role: string | null
@@ -20,18 +22,28 @@ export default function FooterBar({
 
   const handleStart = async () => {
     if (loading) return
+    const validation = interviewStartSchema.safeParse({
+      role,
+      experience,
+      interviewType,
+    })
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message)
+      return
+    }
     setLoading(true)
 
     try {
-      const res = await interviewService.startInterview({
-        role,
-        experience,
-        interviewType,
-      });
+      const res = await interviewService.startInterview(validation.data);
       console.log(res.interviewId);
       navigate(`/interview/${res.interviewId}`);
     } catch (error) {
       console.error("Failed to start interview:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not start the interview. Please try again."
+      );
       setLoading(false);
     }
   }

@@ -86,6 +86,7 @@ export default function AnswerBox({ value, onChange }: Props) {
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        maxLength={10_000}
         placeholder="Type or speak your answer..."
         className="min-h-[200px] bg-transparent border-none focus-visible:ring-0 text-gray-200 placeholder:text-gray-500 pr-10"
       />

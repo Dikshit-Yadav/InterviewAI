@@ -4,15 +4,18 @@ import type {
     RegisterRequest,
     AuthResponse,
 } from "../types/authType";
+import { loginSchema, registerSchema } from "@/lib/validation";
 
 export const AuthService = {
     login: async (data: LoginRequest) => {
-        const res = await API.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, data);
+        const validated = loginSchema.parse(data);
+        const res = await API.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, validated);
         return res.data;
     },
 
     register: async (data: RegisterRequest) => {
-        const res = await API.post<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, data);
+        const validated = registerSchema.parse(data);
+        const res = await API.post<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, validated);
         return res.data;
     },
 

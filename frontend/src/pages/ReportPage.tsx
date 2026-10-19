@@ -11,16 +11,32 @@ import QuestionAnalysis from "@/components/report/QuestionAnalysis";
 export default function ReportPage() {
   const { id } = useParams();
   const [report, setReport] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     const fetchReport = async () => {
-      const data = await interviewService.generateReport(id);
-      setReport(data);
+      if (!id) {
+        setError("Invalid report id.");
+        return;
+      }
+
+      try {
+        const data = await interviewService.generateReport(id);
+        if (active) setReport(data);
+      } catch (err) {
+        console.error("Failed to load report", err);
+        if (active) setError("Could not load this report. Please try again.");
+      }
     };
 
     fetchReport();
+    return () => {
+      active = false;
+    };
   }, [id]);
 
+  if (error) return <p className="text-white p-10">{error}</p>;
   if (!report) return <p className="text-white p-10">Loading...</p>;
 
   return (

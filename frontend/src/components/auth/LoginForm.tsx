@@ -4,36 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService"
 import {toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
-import { z } from "zod";
 
 import { useEffect, useState } from "react";
-
-const loginSchema = z
-  .object({
-    email: z.string().trim(),
-    password: z.string(),
-  })
-  .superRefine(({ email, password }, ctx) => {
-    if (!email && !password) {
-      ctx.addIssue({ code: "custom", message: "All fields are required" });
-      return;
-    }
-
-    if (!password) {
-      ctx.addIssue({ code: "custom", message: "Password is required" });
-    } else if (password.trim().length < 8) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Password must be at least 8 characters",
-      });
-    }
-
-    if (!email) {
-      ctx.addIssue({ code: "custom", message: "Email is required" });
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      ctx.addIssue({ code: "custom", message: "Please enter a valid email" });
-    }
-  });
 
 export default function LoginForm() {
   const navigate = useNavigate();
@@ -61,16 +33,36 @@ export default function LoginForm() {
   }, []);
 
   const submit = async () => {
-    const validation = loginSchema.safeParse({ email, password });
-    if (!validation.success) {
-      toast.error(validation.error.issues[0].message);
+    if (!email && !password) {
+      toast.error("All fields are required");
+      return;
+    }
+
+    if(!password){
+      toast.error("Password is required");
+      return;
+    }
+    if(!email){
+      toast.error("Email is required");
+      return;
+    }
+    if((password.trim()).length < 8){
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email");
       return;
     }
     if (loading) return;
     setLoading(true);
+
     try {
-    try {
-      await AuthService.login(validation.data);
+      const data = { email, password };
+      await AuthService.login(data);
 
       toast.success("Login successful!");
       navigate("/dashboard");

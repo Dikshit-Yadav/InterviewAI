@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {updateProfile} from "@/services/profileService";
+import { profileSchema } from "@/lib/validation";
 
 export default function EditProfileForm() {
   const uname = JSON.parse(sessionStorage.getItem("name") ?? "null");
@@ -12,13 +13,20 @@ export default function EditProfileForm() {
   const [loading, setLoading] = useState(false);
 
   const handleUpdate = async () => {
+    const validation = profileSchema.safeParse({ name, targetRole: role });
+    if (!validation.success) {
+      alert(validation.error.issues[0].message);
+      return;
+    }
     if (loading) return;
     setLoading(true);
 
     try {
-      // the backend reads `targetRole`, not `role`
-      const data = { name, targetRole: role };
-      await updateProfile(data);
+      await updateProfile(validation.data);
+      sessionStorage.setItem("name", JSON.stringify(validation.data.name));
+      sessionStorage.setItem("role", JSON.stringify(validation.data.targetRole));
+      setName(validation.data.name);
+      setRole(validation.data.targetRole);
       alert("Profile updated!");
     } catch (err) {
       console.error(err);

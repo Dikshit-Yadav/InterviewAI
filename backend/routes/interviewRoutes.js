@@ -1,12 +1,41 @@
 import express from "express";
 import { startInterview, getQuestions, generateReport, submitInterview } from "../controllers/interviewController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
+import { validateRequest } from "../middlewares/validateRequest.js";
+import {
+  interviewIdParamsSchema,
+  interviewStartBodySchema,
+  submitAnswersBodySchema,
+} from "../validation/schemas.js";
 
 const router = express.Router();
 
-router.post("/start", authMiddleware, startInterview);
-router.get("/questions/:id", authMiddleware, getQuestions);
-router.post("/submit/:id", authMiddleware, submitInterview);
-router.post("/generate-report/:id", authMiddleware, generateReport);
+router.post(
+  "/start",
+  authMiddleware,
+  validateRequest({ body: interviewStartBodySchema }),
+  startInterview
+);
+router.get(
+  "/questions/:id",
+  authMiddleware,
+  validateRequest({ params: interviewIdParamsSchema }),
+  getQuestions
+);
+router.post(
+  "/submit/:id",
+  authMiddleware,
+  validateRequest({
+    params: interviewIdParamsSchema,
+    body: submitAnswersBodySchema,
+  }),
+  submitInterview
+);
+router.post(
+  "/generate-report/:id",
+  authMiddleware,
+  validateRequest({ params: interviewIdParamsSchema }),
+  generateReport
+);
 
 export default router;

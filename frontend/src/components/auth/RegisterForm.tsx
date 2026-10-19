@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService"
 import {toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
+import { registerSchema } from "@/lib/validation";
 
 import { useState } from "react";
 
@@ -16,34 +17,21 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    if (!name && !email && !password && !targetRole) {
-      toast.error("All fields are required");
-      return;
-    }
-    if (!password) {
-      toast.error("Password is required");
-      return;
-    }
-    if (!email) {
-      toast.error("Email is required");
-      return;
-    }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email");
+    const validation = registerSchema.safeParse({
+      name,
+      email,
+      password,
+      targetRole,
+    });
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
       return;
     }
     if (loading) return;
     setLoading(true);
 
     try {
-      const data = { name, email, password, targetRole };
-      await AuthService.register(data);
+      await AuthService.register(validation.data);
 
       toast.success("Registration successful!");
       navigate("/login");
@@ -111,7 +99,7 @@ export default function RegisterForm() {
           value={targetRole}
           onChange={(e) => setTargetRole(e.target.value)}
         >
-          <option>Pick your target role</option>
+          <option value="">Pick your target role</option>
           <option>MERN Developer</option>
           <option>Frontend Developer</option>
           <option>Backend Developer</option>

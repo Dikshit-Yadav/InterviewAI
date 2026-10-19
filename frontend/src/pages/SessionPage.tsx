@@ -7,6 +7,7 @@ import AnswerBox from "@/components/session/AnswerBox";
 import NavigationControls from "@/components/session/NavigationControls";
 
 import { interviewService } from "@/services/interviewServices";
+import { answerDraftSchema } from "@/lib/validation";
 
 type Question = {
   _id: string;
@@ -20,8 +21,17 @@ const draftKey = (interviewId?: string) => `interview-draft-${interviewId}`;
 
 const loadDraft = (interviewId?: string): Record<string, string> => {
   try {
-    return JSON.parse(localStorage.getItem(draftKey(interviewId)) || "{}");
-  } catch {
+    const savedDraft = localStorage.getItem(draftKey(interviewId));
+    if (!savedDraft) return {};
+
+    const validation = answerDraftSchema.safeParse(JSON.parse(savedDraft));
+    if (validation.success) return validation.data;
+
+    console.error("Ignoring invalid saved interview answers", validation.error);
+    localStorage.removeItem(draftKey(interviewId));
+    return {};
+  } catch (error) {
+    console.error("Could not read saved interview answers", error);
     return {};
   }
 };
