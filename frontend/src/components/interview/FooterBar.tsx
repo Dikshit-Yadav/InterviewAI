@@ -49,7 +49,7 @@ export default function FooterBar({
   }
 
   return (
-    <div className="flex justify-between items-center border border-gray-800 rounded-xl p-4 bg-[#0b0f2a]">
+    <div className="flex justify-between items-center border border-border rounded-xl p-4 bg-surface">
       <div className="text-sm text-gray-400 space-y-1">
         <p>
           Role:{" "}
@@ -76,7 +76,7 @@ export default function FooterBar({
       <Button
         disabled={!isReady}
         loading={loading}
-        className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+        className="bg-brand text-primary-foreground hover:bg-brand-hover disabled:opacity-50"
         onClick={handleStart}
       >
         {loading ? "Preparing your interview..." : "Start Interview →"}

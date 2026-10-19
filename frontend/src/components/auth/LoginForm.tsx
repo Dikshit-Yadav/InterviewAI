@@ -77,7 +77,7 @@ export default function LoginForm() {
 
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
+    <div className="w-full max-w-md p-8 rounded-xl border border-border bg-surface">
 
       {/* title */}
       <h2 className="text-2xl font-semibold mb-2">Welcome back</h2>
@@ -110,7 +110,7 @@ export default function LoginForm() {
       </div>
 
       {/* btn */}
-      <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit} loading={loading}>
+      <Button className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover" onClick={submit} loading={loading}>
         {loading ? "Signing in..." : "Sign in →"}
       </Button>
 
@@ -124,7 +124,7 @@ export default function LoginForm() {
       {/* footer */}
       <p className="text-center text-sm text-gray-400 mt-6">
         New to InterviewAI?{" "}
-        <span className="text-purple-400 cursor-pointer hover:underline" onClick={() => navigate("/signup")}>
+        <span className="text-brand cursor-pointer hover:underline" onClick={() => navigate("/signup")}>
           Create one
         </span>
       </p>

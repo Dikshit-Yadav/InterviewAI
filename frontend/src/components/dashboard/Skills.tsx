@@ -19,7 +19,7 @@ export default function Skills({ data }: Props) {
 
             <div className="w-full h-2 bg-gray-800 rounded">
               <div
-                className="h-2 rounded bg-purple-500"
+                className="h-2 rounded bg-brand"
                 style={{ width: `${(s.score / 10) * 100}%` }}
               />
             </div>

@@ -12,12 +12,12 @@ export default function QuestionCard({
   question,
 }: Props) {
   return (
-    <div className="bg-[#0b0f2a] border border-gray-800 rounded-2xl p-6 space-y-4">
+    <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
       <div className="flex gap-2">
-        <Badge className="bg-[#11163a] text-gray-300 border border-gray-700">
+        <Badge className="bg-surface-hover text-text-secondary border border-border">
           {category}
         </Badge>
-        <Badge className="bg-[#11163a] text-gray-300 border border-gray-700">
+        <Badge className="bg-surface-hover text-text-secondary border border-border">
           {difficulty}
         </Badge>
       </div>

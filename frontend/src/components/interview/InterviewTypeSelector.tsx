@@ -25,9 +25,9 @@ export default function InterviewTypeSelector({ value, onChange }: Props) {
             variant="outline"
             onClick={() => onChange(type)}
             className={cn(
-              "justify-start border-gray-700 bg-[#0b0f2a]",
+              "justify-start border-border bg-surface",
               value === type &&
-                "border-purple-500 text-white bg-[#11163a]"
+                "border-brand text-text-primary bg-surface-hover"
             )}
           >
             {type}

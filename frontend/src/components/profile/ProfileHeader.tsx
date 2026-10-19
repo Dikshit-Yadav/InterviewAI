@@ -2,7 +2,7 @@ export default function ProfileHeader() {
   const name = JSON.parse(sessionStorage.getItem("name"));
   return (
     <div className="flex items-center gap-4">
-      <div className="w-16 h-16 rounded-full bg-purple-500 flex items-center justify-center text-xl font-bold">
+      <div className="w-16 h-16 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-xl font-bold">
         {name?.charAt(0) || "U"}
       </div>
 

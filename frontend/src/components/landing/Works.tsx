@@ -18,7 +18,7 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="px-8 py-20 max-w-6xl mx-auto border-t border-white/10">
+    <section className="px-8 py-20 max-w-6xl mx-auto border-t border-border">
       <h2 className="text-3xl font-bold text-center mb-2">
         How it works
       </h2>
@@ -30,9 +30,9 @@ export default function HowItWorks() {
         {steps.map((step, i) => (
           <div
             key={i}
-            className="p-6 rounded-xl border border-white/10 bg-white/5"
+            className="p-6 rounded-xl border border-border bg-surface"
           >
-            <div className="text-purple-400 text-2xl font-bold mb-4">
+            <div className="text-accent text-2xl font-bold mb-4">
               {step.no}
             </div>
             <h3 className="font-semibold mb-2">{step.title}</h3>

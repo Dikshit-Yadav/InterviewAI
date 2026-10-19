@@ -16,7 +16,7 @@ export default function WelcomeHeader() {
         </p>
       </div>
 
-      <Button className="bg-gradient-to-r from-purple-500 to-indigo-500" onClick={()=>navigate("/interview")}>
+      <Button className="bg-brand text-primary-foreground hover:bg-brand-hover" onClick={()=>navigate("/interview")}>
         + Start new interview
       </Button>
     </div>

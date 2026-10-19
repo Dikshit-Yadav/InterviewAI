@@ -30,11 +30,11 @@ export default function Dashboard() {
   }, []);
 
   if (!dashboardData) {
-    return <div className="text-white p-10">Loading...</div>;
+    return <div className="bg-background text-foreground p-10">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0b0b1a] via-[#0d0d2b] to-black text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <DashboardNavbar />
 
       <div className="px-8 py-6 max-w-7xl mx-auto">

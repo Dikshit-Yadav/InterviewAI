@@ -13,10 +13,10 @@ export default function InterviewPage() {
   const [type, setType] = useState("Technical Interview")
 
   return (
-    <div className= "bg-gradient-to-b from-[#0b0b1a] via-[#0d0d2b] to-black text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
-      <div className="min-h-screen bg-[#050816] text-white px-6 py-10">
+      <div className="min-h-screen bg-background text-foreground px-6 py-10">
         <div className="max-w-5xl mx-auto space-y-10">
           <InterviewHeader />
 

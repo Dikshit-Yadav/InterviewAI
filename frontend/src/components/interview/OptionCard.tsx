@@ -18,11 +18,11 @@ export default function OptionCard({
     <Card
       onClick={onClick}
       className={cn(
-        "cursor-pointer p-5 border border-gray-800 bg-[#0b0f2a] hover:border-purple-500 transition flex items-center gap-3",
-        selected && "border-purple-500 bg-[#11163a]"
+        "cursor-pointer p-5 border border-border bg-surface hover:border-brand transition flex items-center gap-3",
+        selected && "border-brand bg-surface-hover"
       )}
     >
-      {Icon && <Icon className="w-5 h-5 text-purple-400" />}
+      {Icon && <Icon className="w-5 h-5 text-accent" />}
       <p className="text-sm">{title}</p>
     </Card>
   )

@@ -36,14 +36,14 @@ export default function ReportPage() {
     };
   }, [id]);
 
-  if (error) return <p className="text-white p-10">{error}</p>;
-  if (!report) return <p className="text-white p-10">Loading...</p>;
+  if (error) return <p className="bg-background text-foreground p-10">{error}</p>;
+  if (!report) return <p className="bg-background text-foreground p-10">Loading...</p>;
 
   return (
-    <div className="bg-gradient-to-b from-[#0b0b1a] via-[#0d0d2b] to-black text-white"> 
+    <div className="bg-background text-foreground">
       <Nabar />
 
-    <div className="min-h-screen bg-[#050816] text-white px-6 py-10">
+    <div className="min-h-screen bg-background text-foreground px-6 py-10">
       <div className="max-w-5xl mx-auto space-y-6">
 
         <ScoreCard report={report} />

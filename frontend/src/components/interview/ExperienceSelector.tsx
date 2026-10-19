@@ -20,9 +20,9 @@ export default function ExperienceSelector({ value, onChange }: Props) {
             variant="outline"
             onClick={() => onChange(level)}
             className={cn(
-              "h-12 w-full border-gray-700 bg-[#0b0f2a]",
+              "h-12 w-full border-border bg-surface",
               value === level &&
-                "border-purple-500 text-white bg-[#11163a]"
+                "border-brand text-text-primary bg-surface-hover"
             )}
           >
             {level}

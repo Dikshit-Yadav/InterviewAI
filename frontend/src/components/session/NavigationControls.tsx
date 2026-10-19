@@ -32,7 +32,7 @@ export default function NavigationControls({
       <Button
         onClick={isLast ? onFinish : onNext}
         loading={submitting}
-        className="bg-purple-600 hover:bg-purple-700"
+        className="bg-brand text-primary-foreground hover:bg-brand-hover"
       >
         {submitting ? "Evaluating..." : isLast ? "Finish & Get Report" : "Next"}
         {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}

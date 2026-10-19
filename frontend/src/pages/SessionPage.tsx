@@ -8,6 +8,7 @@ import NavigationControls from "@/components/session/NavigationControls";
 
 import { interviewService } from "@/services/interviewServices";
 import { answerDraftSchema } from "@/lib/validation";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 type Question = {
   _id: string;
@@ -144,13 +145,17 @@ export default function SessionPage() {
 
   if (!questions.length) {
     return (
-      <div className="text-white p-10">{error ?? "Loading..."}</div>
+      <div className="bg-background text-foreground p-10">{error ?? "Loading..."}</div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050816] text-white px-6 py-10">
+    <div className="min-h-screen bg-background text-foreground px-6 py-10">
       <div className="max-w-4xl mx-auto space-y-6">
+
+        <div className="flex justify-end">
+          <ThemeToggle />
+        </div>
 
         <ProgressHeader
           current={currentIndex + 1}
@@ -171,7 +176,7 @@ export default function SessionPage() {
           onChange={handleAnswerChange}
         />
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
         {submitting && (
           <p className="text-sm text-gray-400">
             Evaluating your answers with AI - this can take a few seconds...

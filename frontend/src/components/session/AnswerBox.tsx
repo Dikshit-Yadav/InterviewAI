@@ -72,23 +72,31 @@ export default function AnswerBox({ value, onChange }: Props) {
   }
 
   return (
-    <div className="bg-[#0b0f2a] border border-gray-800 rounded-2xl p-4 relative">
+    <div className="bg-surface border border-border rounded-xl p-4 relative">
 
       <button
         onClick={listening ? stopVoice : handleVoice}
+        aria-label={listening ? "Stop voice input" : "Start voice input"}
+        aria-pressed={listening}
+        title={listening ? "Stop voice input" : "Start voice input"}
         className={`absolute top-3 right-3 p-2 rounded-full transition
-          ${listening ? "bg-red-500 animate-pulse" : "bg-gray-800 hover:bg-gray-700"}
+          ${listening ? "bg-error animate-pulse" : "bg-surface-hover hover:bg-surface-hover"}
         `}
       >
-        <Mic size={18} className="text-white" />
+        <Mic size={18} className="text-text-primary" />
       </button>
+      {listening && (
+        <span className="absolute right-14 top-4 text-sm font-medium text-error">
+          Listening
+        </span>
+      )}
 
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={10_000}
         placeholder="Type or speak your answer..."
-        className="min-h-[200px] bg-transparent border-none focus-visible:ring-0 text-gray-200 placeholder:text-gray-500 pr-10"
+        className="min-h-[200px] bg-transparent border-none focus-visible:ring-0 text-text-primary placeholder:text-text-muted pr-10"
       />
     </div>
   )

@@ -45,7 +45,7 @@ export default function RegisterForm() {
   };
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
+    <div className="w-full max-w-md p-8 rounded-xl border border-border bg-surface">
 
       {/* title */}
       <h2 className="text-2xl font-semibold mb-2">
@@ -109,7 +109,7 @@ export default function RegisterForm() {
       </div>
 
       {/* btn */}
-      <Button className="w-full py-5 text-base bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90" onClick={submit} loading={loading}>
+      <Button className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover" onClick={submit} loading={loading}>
         {loading ? "Creating account..." : "Create account →"}
       </Button>
 
@@ -123,7 +123,7 @@ export default function RegisterForm() {
       {/* footer */}
       <p className="text-center text-sm text-gray-400 mt-6">
         Already have an account?{" "}
-        <span className="text-purple-400 cursor-pointer hover:underline" onClick={() => navigate("/login")}>
+        <span className="text-brand cursor-pointer hover:underline" onClick={() => navigate("/login")}>
           Sign in
         </span>
       </p>
