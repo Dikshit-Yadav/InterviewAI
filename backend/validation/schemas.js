@@ -96,6 +96,14 @@ export const submitAnswersBodySchema = z.object({
     .max(100, "Too many answers"),
 });
 
+export const interviewFollowUpBodySchema = z.object({
+  questionId: interviewIdSchema,
+  answer: z.string().trim().min(1, "Answer the question before continuing").max(
+    10_000,
+    "An answer cannot exceed 10,000 characters"
+  ),
+});
+
 export const googleCallbackQuerySchema = z.object({
   state: z.string().min(1).optional(),
   code: z.string().min(1).optional(),

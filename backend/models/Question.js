@@ -16,6 +16,12 @@ const questionSchema = new mongoose.Schema(
     order: {
       type: Number,
     },
+    followUpToQuestionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Question",
+      unique: true,
+      sparse: true,
+    },
   },
   { timestamps: true }
 );

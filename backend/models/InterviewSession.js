@@ -28,6 +28,12 @@ const interviewSessionSchema = new mongoose.Schema(
       enum: ["started", "completed"],
       default: "started",
     },
+    followUpCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 2,
+    },
   },
   { timestamps: true }
 );

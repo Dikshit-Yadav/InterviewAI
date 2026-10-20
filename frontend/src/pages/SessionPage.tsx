@@ -14,6 +14,7 @@ type Question = {
   _id: string;
   questionText: string;
   order: number;
+  followUpToQuestionId?: string;
 };
 
 // answers are kept in state (and mirrored to localStorage so a refresh
@@ -87,58 +88,83 @@ export default function SessionPage() {
     }));
   };
 
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-    }
-  };
-
   const handlePrev = () => {
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
     }
   };
 
-  // runs once, on the last question: send every answer to the backend,
-  // which sends them to the AI and returns the finished report.
-  const handleFinish = async () => {
-    if (!interviewId || submitting) return;
-
-    if (answeredCount === 0) {
-      setError("Write at least one answer before finishing.");
-      return;
-    }
-
-    const unanswered = questions.length - answeredCount;
-    if (
-      unanswered > 0 &&
-      !window.confirm(
-        `${unanswered} question(s) are unanswered and will score 0. Submit anyway?`
-      )
-    ) {
+  const handleNext = async () => {
+    if (!interviewId || !currentQuestion || submitting) return;
+    const answer = (answers[currentQuestion._id] ?? "").trim();
+    if (currentQuestion.order === 1 && !answer) {
+      setError("A brief introduction is required before you continue.");
       return;
     }
 
     setSubmitting(true);
     setError(null);
-
     try {
+      if (
+        answer.length >= 30 &&
+        currentQuestion.order !== 1 &&
+        !currentQuestion.followUpToQuestionId
+      ) {
+        const result = await interviewService.getAnswerFollowUp(
+          interviewId,
+          currentQuestion._id,
+          answer
+        );
+        if (result.followUp) {
+          const nextQuestions = questions.some(
+            (question) => question._id === result.followUp?._id
+          )
+            ? questions
+            : [
+                ...questions.slice(0, currentIndex + 1),
+                result.followUp,
+                ...questions.slice(currentIndex + 1),
+              ];
+          setQuestions(nextQuestions);
+          const followUpIndex = nextQuestions.findIndex(
+            (question) => question._id === result.followUp?._id
+          );
+          setCurrentIndex(followUpIndex);
+          return;
+        }
+      }
+
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex((index) => index + 1);
+        return;
+      }
+
+      const unanswered = questions.length - answeredCount;
+      if (
+        unanswered > 0 &&
+        !window.confirm(
+          `${unanswered} question(s) are unanswered and will score 0. Submit anyway?`
+        )
+      ) {
+        return;
+      }
+
       await interviewService.submitInterview(
         interviewId,
-        questions.map((q) => ({
-          questionId: q._id,
-          answer: (answers[q._id] ?? "").trim(),
+        questions.map((question) => ({
+          questionId: question._id,
+          answer: (answers[question._id] ?? "").trim(),
         }))
       );
-
       localStorage.removeItem(draftKey(interviewId));
       navigate(`/report/${interviewId}`);
     } catch (err: any) {
-      console.error("Submit failed", err);
+      console.error("Could not continue interview", err);
       setError(
         err?.response?.data?.message ||
-          "Something went wrong while evaluating your answers. Your answers are still saved - please try again."
+          "Could not continue the interview. Your answer is saved; please try again."
       );
+    } finally {
       setSubmitting(false);
     }
   };
@@ -161,12 +187,18 @@ export default function SessionPage() {
           current={currentIndex + 1}
           total={questions.length}
           answered={answeredCount}
-          timeLeft="3:53"
+          timeLeft=""
         />
 
         <QuestionCard
-          category="AI Generated"
-          difficulty="Dynamic"
+          category={
+            currentQuestion.followUpToQuestionId
+              ? "Follow-up"
+              : currentQuestion.order === 1
+                ? "Introduction"
+                : "Interview question"
+          }
+          difficulty="Based on your level"
           question={currentQuestion.questionText}
         />
 
@@ -176,17 +208,22 @@ export default function SessionPage() {
           onChange={handleAnswerChange}
         />
 
+        {currentQuestion.order === 1 && (
+          <p className="text-sm text-secondary">
+            A brief introduction is required to continue.
+          </p>
+        )}
         {error && <p className="text-sm text-error">{error}</p>}
         {submitting && (
           <p className="text-sm text-gray-400">
-            Evaluating your answers with AI - this can take a few seconds...
+            Preparing your next question or report...
           </p>
         )}
 
         <NavigationControls
           onPrev={handlePrev}
           onNext={handleNext}
-          onFinish={handleFinish}
+          onFinish={handleNext}
           isLast={isLastQuestion}
           disablePrev={currentIndex === 0}
           submitting={submitting}

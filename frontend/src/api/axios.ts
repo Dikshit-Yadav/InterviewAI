@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
     START: "/interview/start",
     START_FROM_RESUME: "/interview/start-from-resume",
     REVIEW_RESUME: "/interview/review-resume",
+    FOLLOW_UP: "/interview/follow-up",
   },
 
 

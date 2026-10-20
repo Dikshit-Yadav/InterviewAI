@@ -1,0 +1,27 @@
+{
+  "planHash": "07313f234c9386b52be5023c8bb792da8a6f272912449399b9971f67095f3f95",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-10-20T14:44:04.0675169Z",
+  "retryCount": 0,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": false,
+    "setupDurationMs": 25888,
+    "setupFailureOutput": "setup step 0 \u0027npm\u0027 failed (exit=-4048, timedOut=False)\r\nnpm warn ERESOLVE overriding peer dependency\r\nnpm warn While resolving: @vitest/mocker@3.2.7\r\nnpm warn Found: vite@8.3.4\r\nnpm warn node_modules/vite\r\nnpm warn   dev vite@\u0022^8.0.10\u0022 from the root project\r\nnpm warn   1 more (@vitejs/plugin-react)\r\nnpm warn\r\nnpm warn Could not resolve dependency:\r\nnpm warn peerOptional vite@\u0022^5.0.0 || ^6.0.0 || ^7.0.0-0\u0022 from @vitest/mocker@3.2.7\r\nnpm warn node_modules/@vitest/mocker\r\nnpm warn   @vitest/mocker@\u00223.2.7\u0022 from vitest@3.2.7\r\nnpm warn   node_modules/vitest\r\nnpm warn\r\nnpm warn Conflicting peer dependency: vite@7.3.7\r\nnpm warn node_modules/vite\r\nnpm warn   peerOptional vite@\u0022^5.0.0 || ^6.0.0 || ^7.0.0-0\u0022 from @vitest/mocker@3.2.7\r\nnpm warn   node_modules/@vitest/mocker\r\nnpm warn     @vitest/mocker@\u00223.2.7\u0022 from vitest@3.2.7\r\nnpm warn     node_modules/vitest\r\nnpm error code EPERM\r\nnpm error syscall unlink\r\nnpm error path C:\\Users\\2004d\\OneDrive\\Desktop\\BCA\\MERN Project\\InterviewAI\\frontend\\node_modules\\@rolldown\\binding-win32-x64-msvc\\rolldown-binding.win32-x64-msvc.node\r\nnpm error errno -4048\r\nnpm error [Error: EPERM: operation not permitted, unlink \u0027C:\\Users\\2004d\\OneDrive\\Desktop\\BCA\\MERN Project\\InterviewAI\\frontend\\node_modules\\@rolldown\\binding-win32-x64-msvc\\rolldown-binding.win32-x64-msvc.node\u0027] {\r\nnpm error   errno: -4048,\r\nnpm error   code: \u0027EPERM\u0027,\r\nnpm error   syscall: \u0027unlink\u0027,\r\nnpm error   path: \u0027C:\\\\Users\\\\2004d\\\\OneDrive\\\\Desktop\\\\BCA\\\\MERN Project\\\\InterviewAI\\\\frontend\\\\node_modules\\\\@rolldown\\\\binding-win32-x64-msvc\\\\rolldown-binding.win32-x64-msvc.node\u0027\r\nnpm error }\r\nnpm error\r\nnpm error The operation was rejected by your operating system.\r\nnpm error It\u0027s possible that the file was already in use (by a text editor or antivirus),\r\nnpm error or that you lack permissions to access it.\r\nnpm error\r\nnpm error If you believe this might be a permissions issue, please double-check the\r\nnpm error permissions of the file and its containing directories, or try running\r\nnpm error the command again as root/Administrator.\r\nnpm error A complete log of this run can be found in: C:\\Users\\2004d\\AppData\\Local\\npm-cache\\_logs\\2026-10-20T14_43_38_887Z-debug-0.log\r\n",
+    "assertions": [],
+    "executions": [
+      {
+        "source": "setup[0]",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "ci"
+        ],
+        "cwd": "C:\\Users\\2004d\\OneDrive\\Desktop\\BCA\\MERN Project\\InterviewAI\\frontend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}

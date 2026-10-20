@@ -76,6 +76,63 @@ export const profileSchema = z.object({
     .max(100, "Target role is too long"),
 });
 
+const resumeTextSchema = z.string().trim().max(2000, "Keep this under 2,000 characters");
+const optionalResumeTextSchema = resumeTextSchema.optional().default("");
+
+export const resumeBuilderSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
+  headline: z.string().trim().min(1, "Professional title is required").max(120),
+  email: z
+    .string()
+    .trim()
+    .max(254, "Email is too long")
+    .refine((value) => !value || z.string().email().safeParse(value).success, {
+      message: "Enter a valid email address",
+    }),
+  phone: z.string().trim().max(40),
+  location: z.string().trim().max(120),
+  linkedin: z.string().trim().max(300),
+  github: z.string().trim().max(300),
+  summary: z.string().trim().min(1, "Professional summary is required").max(2000),
+  skills: z.object({
+    languages: optionalResumeTextSchema,
+    frontend: optionalResumeTextSchema,
+    backend: optionalResumeTextSchema,
+    testing: optionalResumeTextSchema,
+    databases: optionalResumeTextSchema,
+    competencies: optionalResumeTextSchema,
+  }),
+  experience: z.array(
+    z.object({
+      role: z.string().trim().min(1, "Role is required").max(120),
+      company: z.string().trim().min(1, "Company is required").max(120),
+      dates: z.string().trim().min(1, "Dates are required").max(100),
+      location: optionalResumeTextSchema,
+      bullets: z.string().trim().min(1, "Add at least one accomplishment").max(4000),
+    }),
+  ),
+  projects: z.array(
+    z.object({
+      name: z.string().trim().min(1, "Project name is required").max(120),
+      links: optionalResumeTextSchema,
+      technologies: optionalResumeTextSchema,
+      bullets: z.string().trim().min(1, "Add at least one project detail").max(4000),
+    }),
+  ),
+  education: z
+    .array(
+      z.object({
+        degree: z.string().trim().min(1, "Degree is required").max(120),
+        institution: z.string().trim().min(1, "Institution is required").max(160),
+        dates: z.string().trim().min(1, "Dates are required").max(100),
+        location: optionalResumeTextSchema,
+      }),
+    )
+    .min(1, "Add at least one education entry"),
+});
+
+export type ResumeBuilderData = z.infer<typeof resumeBuilderSchema>;
+
 export const interviewStartSchema = z.object({
   role: z.string().trim().min(1, "Choose a target role").max(100),
   experience: z.enum(["Beginner", "Intermediate", "Advanced"], {

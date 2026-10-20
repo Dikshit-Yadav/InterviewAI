@@ -44,6 +44,20 @@ export const interviewService = {
         const res = await API.get(`/interview/questions/${validatedId}`);
         return res.data;
     },
+    getAnswerFollowUp: async (
+        interviewId: string,
+        questionId: string,
+        answer: string
+    ) => {
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const response = await API.post(
+            `${API_ENDPOINTS.INTERVIEW.FOLLOW_UP}/${validatedId}`,
+            { questionId, answer }
+        );
+        return response.data as {
+            followUp: { _id: string; questionText: string; order: number } | null;
+        };
+    },
 
     // sends ALL answers at once; backend evaluates them with AI and returns the report
     submitInterview: async (

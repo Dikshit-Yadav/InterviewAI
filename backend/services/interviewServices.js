@@ -6,11 +6,15 @@ import mongoose from "mongoose";
 import {
     generateQuestions,
     generateResumeInterview,
+    generateAnswerFollowUp,
     evaluateAllAnswers,
     generateFinalReportAI,
 } from "./aiService.js";
 
-const httpError = (status, message) => Object.assign(new Error(message), { status });
+const httpError = (status, message) =>
+    Object.assign(new Error(message), { status, isHttpError: true });
+const MAX_INTERVIEW_QUESTIONS = 13;
+const MAX_FOLLOW_UP_QUESTIONS = 2;
 
 // throws 400/404/403 unless the interview exists and belongs to userId
 export const assertInterviewOwner = async (userId, interviewId) => {
@@ -30,6 +34,7 @@ export const createInterviewSession = async (userId, role, experience, interview
         throw new Error("All fields required");
     }
 
+    const questions = await generateQuestions(role, experience, interviewType);
     const session = await InterviewSession.create({
         userId,
         role,
@@ -37,15 +42,21 @@ export const createInterviewSession = async (userId, role, experience, interview
         interviewType,
     });
 
-    const questions = await generateQuestions(role, experience, interviewType);
-
-    const questionDocs = questions.map((q, index) => ({
-        interviewId: session._id,
-        questionText: q,
-        order: index + 1,
-    }));
-
-    await Question.insertMany(questionDocs);
+    try {
+        await Question.insertMany(
+            questions.map((questionText, index) => ({
+                interviewId: session._id,
+                questionText,
+                order: index + 1,
+            }))
+        );
+    } catch (error) {
+        await Promise.all([
+            Question.deleteMany({ interviewId: session._id }),
+            InterviewSession.deleteOne({ _id: session._id }),
+        ]);
+        throw error;
+    }
 
     return session;
 };
@@ -81,6 +92,91 @@ export const createResumeInterviewSession = async (
     }
 
     return session;
+};
+
+export const createFollowUpQuestion = async (userId, interviewId, questionId, answer) => {
+    const session = await assertInterviewOwner(userId, interviewId);
+    if (session.status === "completed") {
+        throw httpError(400, "This interview has already been completed");
+    }
+
+    const question = await Question.findOne({ _id: questionId, interviewId });
+    if (!question) throw httpError(404, "Question not found for this interview");
+
+    const existingFollowUp = await Question.findOne({
+        interviewId,
+        followUpToQuestionId: question._id,
+    });
+    if (existingFollowUp) return null;
+
+    if (question.order === 1 || question.followUpToQuestionId || answer.trim().length < 30) {
+        return null;
+    }
+
+    const questionCount = await Question.countDocuments({ interviewId });
+    if (questionCount >= MAX_INTERVIEW_QUESTIONS || !answer.trim()) return null;
+
+    const reserved = await InterviewSession.findOneAndUpdate(
+        {
+            _id: session._id,
+            status: "started",
+            $or: [
+                { followUpCount: { $lt: MAX_FOLLOW_UP_QUESTIONS } },
+                { followUpCount: { $exists: false } },
+            ],
+        },
+        { $inc: { followUpCount: 1 } },
+        { new: true }
+    );
+    if (!reserved) return null;
+
+    let shifted = false;
+    try {
+        const followUpText = await generateAnswerFollowUp(
+            {
+                role: session.role,
+                experience: session.experience,
+                interviewType: session.interviewType,
+            },
+            question.questionText,
+            answer.trim()
+        );
+        if (!followUpText) {
+            await InterviewSession.updateOne(
+                { _id: session._id },
+                { $inc: { followUpCount: -1 } }
+            );
+            return null;
+        }
+
+        await Question.updateMany(
+            { interviewId, order: { $gt: question.order } },
+            { $inc: { order: 1 } }
+        );
+        shifted = true;
+
+        return await Question.create({
+            interviewId,
+            questionText: followUpText,
+            order: question.order + 1,
+            followUpToQuestionId: question._id,
+        });
+    } catch (error) {
+        if (shifted) {
+            await Question.updateMany(
+                { interviewId, order: { $gt: question.order + 1 } },
+                { $inc: { order: -1 } }
+            );
+        }
+        await InterviewSession.updateOne(
+            { _id: session._id, followUpCount: { $gt: 0 } },
+            { $inc: { followUpCount: -1 } }
+        );
+        if (error.code === 11000) {
+            return Question.findOne({ interviewId, followUpToQuestionId: question._id });
+        }
+        throw error;
+    }
 };
 
 
@@ -174,6 +270,10 @@ export const submitInterviewService = async (userId, interviewId, answers) => {
         question: q,
         answer: answerByQuestion.get(String(q._id)) || "",
     }));
+
+    if (!rows[0]?.answer) {
+        throw httpError(400, "Please answer the required brief introduction before finishing");
+    }
 
     const answered = rows.filter((r) => r.answer);
     if (!answered.length) {

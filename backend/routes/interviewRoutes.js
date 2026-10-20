@@ -4,6 +4,7 @@ import {
   startResumeInterview,
   reviewUploadedResume,
   getQuestions,
+  getAnswerFollowUp,
   generateReport,
   submitInterview,
 } from "../controllers/interviewController.js";
@@ -12,6 +13,7 @@ import resumeUpload from "../middlewares/resumeUpload.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
 import {
   interviewIdParamsSchema,
+  interviewFollowUpBodySchema,
   interviewStartBodySchema,
   resumeInterviewBodySchema,
   submitAnswersBodySchema,
@@ -43,6 +45,15 @@ router.get(
   authMiddleware,
   validateRequest({ params: interviewIdParamsSchema }),
   getQuestions
+);
+router.post(
+  "/follow-up/:id",
+  authMiddleware,
+  validateRequest({
+    params: interviewIdParamsSchema,
+    body: interviewFollowUpBodySchema,
+  }),
+  getAnswerFollowUp
 );
 router.post(
   "/submit/:id",

@@ -1,6 +1,7 @@
 import {
   createInterviewSession,
   createResumeInterviewSession,
+  createFollowUpQuestion,
   fetchInterviewQuestions,
   generateReportService,
   submitInterviewService,
@@ -104,6 +105,36 @@ export const getQuestions = async (req, res) => {
       logger.error({ err: error, requestId: req.id }, "Could not load interview questions");
     }
     res.status(error.status || 500).json({ message: error.message });
+  }
+};
+
+export const getAnswerFollowUp = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const followUp = await createFollowUpQuestion(
+      req.user.id,
+      id,
+      req.body.questionId,
+      req.body.answer
+    );
+    return res.status(200).json({ followUp });
+  } catch (error) {
+    if (error.isHttpError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    logger.error(
+      {
+        err: error,
+        providerStatus: error.status,
+        providerCode: error.code,
+        providerType: error.type,
+        requestId: req.id,
+      },
+      "Could not generate answer follow-up"
+    );
+    return res.status(502).json({
+      message: "The AI provider could not generate a follow-up. Please try again.",
+    });
   }
 };
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
+import ResumeBuilder from "@/components/dashboard/ResumeBuilder";
 import ResumeActions from "@/components/interview/ResumeActions";
 import WelcomeHeader from "@/components/dashboard/WelcomeHeader";
 import StatsCards from "@/components/dashboard/StatsCards";
@@ -55,6 +56,8 @@ export default function Dashboard() {
             <ResumeActions />
           </div>
         </section>
+
+        <ResumeBuilder />
 
         <StatsCards data={dashboardData} />
         {/* <Skills data={dashboardData.skillBreakdown} /> */}

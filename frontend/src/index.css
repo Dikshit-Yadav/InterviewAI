@@ -204,9 +204,132 @@
   }
 }
 
-[class~="bg-white/5"],
-[class~="bg-white/10"],
-[class~="bg-black/30"],
+  .resume-paper {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.35;
+  }
+
+  .resume-paper a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .resume-header {
+    border-bottom: 1px solid #1f2937;
+    padding-bottom: 8px;
+    text-align: center;
+  }
+
+  .resume-header h1 {
+    font-size: 21pt;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .resume-headline {
+    margin-top: 2px;
+    font-size: 11pt;
+  }
+
+  .resume-contact {
+    margin-top: 5px;
+    font-size: 8.5pt;
+    overflow-wrap: anywhere;
+  }
+
+  .resume-section {
+    margin-top: 12px;
+  }
+
+  .resume-section h3 {
+    margin-bottom: 5px;
+    border-bottom: 1px solid #1f2937;
+    padding-bottom: 2px;
+    font-size: 10pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .resume-section p {
+    white-space: pre-wrap;
+  }
+
+  .resume-skills p + p {
+    margin-top: 2px;
+  }
+
+  .resume-entry {
+    margin-top: 7px;
+    break-inside: avoid;
+  }
+
+  .resume-entry-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .resume-entry-heading span {
+    flex-shrink: 0;
+    font-size: 9pt;
+  }
+
+  .resume-subline {
+    font-size: 9pt;
+  }
+
+  .resume-entry ul {
+    margin: 3px 0 0 16px;
+    list-style: disc;
+  }
+
+  .resume-entry li {
+    padding-left: 2px;
+  }
+
+  body.resume-printing #root {
+    visibility: hidden;
+  }
+
+  body.resume-printing #resume-print-preview,
+  body.resume-printing #resume-print-preview * {
+    visibility: visible;
+  }
+
+  body.resume-printing #resume-print-preview {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  @media print {
+    @page {
+      size: A4;
+      margin: 14mm;
+    }
+
+    body.resume-printing,
+    body.resume-printing #root {
+      min-width: 0;
+      background: #fff;
+    }
+
+    body.resume-printing #resume-print-preview {
+      color: #111;
+      font-size: 9.5pt;
+    }
+  }
+
+  [class~="bg-white/5"],
+  [class~="bg-white/10"],
+  [class~="bg-black/30"],
 [class~="bg-black/40"] {
   background-color: var(--color-surface) !important;
 }
@@ -264,4 +387,3 @@
 [class~="border-gray-800"] {
   border-color: var(--color-border) !important;
 }
-
