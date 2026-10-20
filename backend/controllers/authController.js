@@ -15,6 +15,7 @@ const authCookieOptions = () => ({
   httpOnly: true,
   secure: true,
   sameSite: "none",
+  path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 });
 
@@ -110,14 +111,16 @@ export const completePasswordReset = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  try {
+   try {
     const data = await loginUser(req.body.email, req.body.password);
 
-    res.cookie("token", data.token, {
-      ...authCookieOptions(),
-    });
-    res.status(200).json(data);
+    res.cookie("token", data.token, authCookieOptions());
 
+    return res.status(200).json({
+      id: data.id,
+      email: data.email,
+      success: true,
+    });
   } catch (err) {
     res.status(401).json({ message: err.message });
   }
