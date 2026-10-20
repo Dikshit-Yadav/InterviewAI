@@ -1,10 +1,6 @@
+@import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @custom-variant dark (&:is(.dark *));
 
@@ -268,5 +264,4 @@
 [class~="border-gray-800"] {
   border-color: var(--color-border) !important;
 }
-
 

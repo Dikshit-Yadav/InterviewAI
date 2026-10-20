@@ -3,6 +3,7 @@ import type {
     LoginRequest,
     RegisterRequest,
     AuthResponse,
+    AuthMeResponse,
 } from "../types/authType";
 import {
     emailOnlySchema,
@@ -49,8 +50,8 @@ export const AuthService = {
         return res.data;
     },
 
-    isme: async () => {
-        const res = await API.get<AuthResponse>(API_ENDPOINTS.AUTH.ME);
+    isme: async (): Promise<AuthMeResponse> => {
+        const res = await API.get<AuthMeResponse>(API_ENDPOINTS.AUTH.ME);
         return res.data;
     },
 

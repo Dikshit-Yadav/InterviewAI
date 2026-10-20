@@ -15,6 +15,18 @@
 				"mammoth"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "Temporary frontend build validation",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"frontend",
+				"run",
+				"build"
+			],
+			"isBackground": false
 		}
 	]
 }

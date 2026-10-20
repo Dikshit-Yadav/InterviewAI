@@ -1,5 +1,15 @@
 export default function ProfileHeader() {
-  const name = JSON.parse(sessionStorage.getItem("name"));
+  const name = (() => {
+    const value = sessionStorage.getItem("name");
+    if (!value) return null;
+
+    try {
+      return JSON.parse(value) as string | null;
+    } catch {
+      return null;
+    }
+  })();
+
   return (
     <div className="flex items-center gap-4">
       <div className="w-16 h-16 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-xl font-bold">

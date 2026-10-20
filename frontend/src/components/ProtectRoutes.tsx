@@ -1,33 +1,34 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { AuthService } from "@/services/authService";
+import type { UserProfile } from "@/types/authType";
 
 const ProtectedRoutes = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  const fetchMe = async () => {
-    try {
-      const data = await AuthService.isme();
-      sessionStorage.setItem("name", JSON.stringify(data.user.name));
-      sessionStorage.setItem("role", JSON.stringify(data.user.targetRole));
-      sessionStorage.setItem("email", JSON.stringify(data.user.email));
-      console.log(data);
-      if (data.isauthenticate) {
-        setUser(data.user);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchMe = async () => {
+      try {
+        const data = await AuthService.isme();
 
-  fetchMe();
-}, []);
+        if (data.isauthenticate && data.user) {
+          sessionStorage.setItem("name", JSON.stringify(data.user.name));
+          sessionStorage.setItem("role", JSON.stringify(data.user.targetRole));
+          sessionStorage.setItem("email", JSON.stringify(data.user.email));
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMe();
+  }, []);
 
   if (loading) return <div>Loading...</div>;
 
