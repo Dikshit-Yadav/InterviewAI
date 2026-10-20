@@ -14,14 +14,14 @@ import logger from "../utils/logger.js";
 const authCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: "none",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 });
 
 const googleStateCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: "none",
   path: "/auth/google",
   maxAge: 10 * 60 * 1000,
 });
@@ -139,7 +139,7 @@ export const googleCallback = async (req, res) => {
   res.clearCookie("google_oauth_state", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "none",
     path: "/auth/google",
   });
 
