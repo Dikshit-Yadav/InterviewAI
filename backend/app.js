@@ -15,28 +15,13 @@ import errorHandler from "./middlewares/errorHandler.js";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
-const allowedOrigins = new Set(
-  [
-    process.env.CLIENT_URL,
-    ...(isProduction
-      ? []
-      : ["http://localhost:5173", "http://127.0.0.1:5173"]),
-  ].filter(Boolean)
-);
 
 app.use(requestLogger);
 app.set("view engine", "ejs");
 app.use(
   cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Origin is not allowed by CORS"));
-    },
+    origin: process.env.CLIENT_URL,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 

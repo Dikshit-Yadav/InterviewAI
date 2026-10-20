@@ -11,20 +11,17 @@ import {
 } from "../services/authServices.js";
 import logger from "../utils/logger.js";
 
-const isProduction = process.env.NODE_ENV === "production";
-
 const authCookieOptions = () => ({
   httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? "none" : "lax",
-  path: "/",
+  secure: true,
+  sameSite: "none",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 });
 
 const googleStateCookieOptions = () => ({
   httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? "none" : "lax",
+  secure: true,
+  sameSite: "none",
   path: "/auth/google",
   maxAge: 10 * 60 * 1000,
 });
@@ -141,8 +138,8 @@ export const googleCallback = async (req, res) => {
   const expectedState = req.cookies.google_oauth_state;
   res.clearCookie("google_oauth_state", {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    secure: true,
+    sameSite: "none",
     path: "/auth/google",
   });
 
