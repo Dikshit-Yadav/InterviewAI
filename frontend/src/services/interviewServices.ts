@@ -12,6 +12,32 @@ export const interviewService = {
         const res = await API.post(API_ENDPOINTS.INTERVIEW.START, validated);
         return res.data;
     },
+    startFromResume: async (
+        file: File,
+        experience: string,
+        interviewType: string
+    ) => {
+        const formData = new FormData();
+        formData.append("resume", file);
+        formData.append("experience", experience);
+        formData.append("interviewType", interviewType);
+        const res = await API.post(
+            API_ENDPOINTS.INTERVIEW.START_FROM_RESUME,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        return res.data as { interviewId: string; role: string };
+    },
+    reviewResume: async (file: File) => {
+        const formData = new FormData();
+        formData.append("resume", file);
+        const res = await API.post(
+            API_ENDPOINTS.INTERVIEW.REVIEW_RESUME,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        return res.data as ResumeReview;
+    },
     getQuestions: async (id: string) => {
         const validatedId = interviewIdSchema.parse(id);
 
@@ -38,4 +64,16 @@ export const interviewService = {
       const res = await API.get("/history");
       return res.data;
     },
+}
+
+export interface ResumeReview {
+    summary: string;
+    atsScore: number | null;
+    strengths: string[];
+    improvements: string[];
+    formattingSuggestions: string[];
+    keywordsToConsider: string[];
+    learningTopics: string[];
+    practiceQuestions: string[];
+    bulletSuggestions: { original: string; suggestion: string }[];
 }

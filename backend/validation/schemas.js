@@ -67,6 +67,21 @@ export const interviewStartBodySchema = z.object({
   ),
 });
 
+export const resumeInterviewBodySchema = z.object({
+  experience: z.enum(["Beginner", "Intermediate", "Advanced"], {
+    error: "Choose a valid experience level",
+  }),
+  interviewType: z.enum(
+    [
+      "Technical Interview",
+      "HR Interview",
+      "System Design Interview",
+      "Behavioral Interview",
+    ],
+    { error: "Choose a valid interview type" }
+  ),
+});
+
 export const interviewIdParamsSchema = z.object({ id: interviewIdSchema });
 
 export const submitAnswersBodySchema = z.object({

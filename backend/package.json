@@ -4,10 +4,10 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch backend --ext js,json backend/server.js",
+    "dev": "nodemon --watch . --ext js,json server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "echo \"No build needed for JavaScript backend\"",
-    "start": "node backend/server.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -23,9 +23,12 @@
     "express": "^5.2.1",
     "groq-sdk": "^1.1.2",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.13.0",
     "mic": "^2.1.2",
     "mongoose": "^9.5.0",
+    "multer": "^2.4.0",
     "openai": "^6.34.0",
+    "pdf-parse": "^1.1.4",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "zod": "^4.3.6"

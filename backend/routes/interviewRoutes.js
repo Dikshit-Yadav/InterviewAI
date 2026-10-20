@@ -1,10 +1,19 @@
 import express from "express";
-import { startInterview, getQuestions, generateReport, submitInterview } from "../controllers/interviewController.js";
+import {
+  startInterview,
+  startResumeInterview,
+  reviewUploadedResume,
+  getQuestions,
+  generateReport,
+  submitInterview,
+} from "../controllers/interviewController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
+import resumeUpload from "../middlewares/resumeUpload.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
 import {
   interviewIdParamsSchema,
   interviewStartBodySchema,
+  resumeInterviewBodySchema,
   submitAnswersBodySchema,
 } from "../validation/schemas.js";
 
@@ -15,6 +24,19 @@ router.post(
   authMiddleware,
   validateRequest({ body: interviewStartBodySchema }),
   startInterview
+);
+router.post(
+  "/start-from-resume",
+  authMiddleware,
+  resumeUpload,
+  validateRequest({ body: resumeInterviewBodySchema }),
+  startResumeInterview
+);
+router.post(
+  "/review-resume",
+  authMiddleware,
+  resumeUpload,
+  reviewUploadedResume
 );
 router.get(
   "/questions/:id",

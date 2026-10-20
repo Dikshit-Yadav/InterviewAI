@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
+import ResumeActions from "@/components/interview/ResumeActions";
 import WelcomeHeader from "@/components/dashboard/WelcomeHeader";
 import StatsCards from "@/components/dashboard/StatsCards";
 import PerformanceSection from "@/components/dashboard/PerformanceSection";
@@ -39,6 +40,21 @@ export default function Dashboard() {
 
       <div className="px-8 py-6 max-w-7xl mx-auto">
         <WelcomeHeader />
+
+        <section className="my-8 rounded-xl border border-border bg-surface p-5 sm:p-6">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">
+              Practice with your resume
+            </h2>
+            <p className="mt-1 text-sm text-secondary">
+              Review your resume or start an interview with questions based on
+              your experience and projects.
+            </p>
+          </div>
+          <div className="mt-5">
+            <ResumeActions />
+          </div>
+        </section>
 
         <StatsCards data={dashboardData} />
         {/* <Skills data={dashboardData.skillBreakdown} /> */}

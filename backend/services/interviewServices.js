@@ -3,7 +3,12 @@ import Answer from "../models/Answer.js";
 import Question from "../models/Question.js";
 import Report from "../models/Report.js";
 import mongoose from "mongoose";
-import { generateQuestions, evaluateAllAnswers, generateFinalReportAI } from "./aiService.js";
+import {
+    generateQuestions,
+    generateResumeInterview,
+    evaluateAllAnswers,
+    generateFinalReportAI,
+} from "./aiService.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -41,6 +46,39 @@ export const createInterviewSession = async (userId, role, experience, interview
     }));
 
     await Question.insertMany(questionDocs);
+
+    return session;
+};
+
+export const createResumeInterviewSession = async (
+    userId,
+    resumeText,
+    experience,
+    interviewType
+) => {
+    const generated = await generateResumeInterview(resumeText, experience, interviewType);
+    const session = await InterviewSession.create({
+        userId,
+        role: generated.role,
+        experience,
+        interviewType,
+    });
+
+    try {
+        await Question.insertMany(
+            generated.questions.map((questionText, index) => ({
+                interviewId: session._id,
+                questionText,
+                order: index + 1,
+            }))
+        );
+    } catch (error) {
+        await Promise.all([
+            Question.deleteMany({ interviewId: session._id }),
+            InterviewSession.deleteOne({ _id: session._id }),
+        ]);
+        throw error;
+    }
 
     return session;
 };
