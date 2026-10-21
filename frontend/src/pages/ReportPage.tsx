@@ -7,6 +7,7 @@ import StrengthWeakness from "@/components/report/StrengthWeakness";
 import LearningPath from "@/components/report/LearningPath";
 import TipsSection from "@/components/report/TipsSection";
 import QuestionAnalysis from "@/components/report/QuestionAnalysis";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 
 export default function ReportPage() {
   const { id } = useParams();
@@ -36,8 +37,14 @@ export default function ReportPage() {
     };
   }, [id]);
 
-  if (error) return <p className="bg-background text-foreground p-10">{error}</p>;
-  if (!report) return <p className="bg-background text-foreground p-10">Loading...</p>;
+  if (error) {
+    return (
+      <p className="grid min-h-screen place-items-center bg-background px-6 text-center text-error" role="alert">
+        {error}
+      </p>
+    );
+  }
+  if (!report) return <PageSkeleton page="report" />;
 
   return (
     <div className="bg-background text-foreground">

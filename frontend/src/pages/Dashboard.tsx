@@ -7,6 +7,7 @@ import StatsCards from "@/components/dashboard/StatsCards";
 import PerformanceSection from "@/components/dashboard/PerformanceSection";
 import ReportsSection from "@/components/dashboard/ReportsSection";
 import HistorySection from "@/components/dashboard/HistorySection";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 // import Skills from "@/components/dashboard/Skills";
 import { getDashboard } from "@/services/dashboardService";
 import { interviewService } from "@/services/interviewServices";
@@ -14,6 +15,8 @@ import { interviewService } from "@/services/interviewServices";
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,14 +28,25 @@ export default function Dashboard() {
         setHistory(hist);
       } catch (err) {
         console.error("Dashboard error:", err);
+        setError("Could not load your dashboard. Please refresh the page.");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchData();
   }, []);
 
-  if (!dashboardData) {
-    return <div className="bg-background text-foreground p-10">Loading...</div>;
+  if (loading) return <PageSkeleton page="dashboard" />;
+  if (error || !dashboardData) {
+    return (
+      <div
+        className="grid min-h-screen place-items-center bg-background px-6 text-center text-error"
+        role="alert"
+      >
+        {error ?? "Dashboard data is unavailable."}
+      </div>
+    );
   }
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { Navigate, Outlet } from "react-router-dom";
 import { AuthService } from "@/services/authService";
 import type { UserProfile } from "@/types/authType";
@@ -30,7 +31,7 @@ const ProtectedRoutes = () => {
     fetchMe();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <PageSkeleton page="auth" />;
 
   return user ? <Outlet /> : <Navigate to="/login" replace />;
 };

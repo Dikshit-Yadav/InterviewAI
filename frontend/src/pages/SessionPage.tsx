@@ -10,6 +10,7 @@ import NavigationControls from "@/components/session/NavigationControls";
 import { interviewService } from "@/services/interviewServices";
 import { answerDraftSchema } from "@/lib/validation";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 
 type Question = {
   _id: string;
@@ -181,9 +182,17 @@ export default function SessionPage() {
   };
 
   if (!questions.length) {
-    return (
-      <div className="bg-background text-foreground p-10">{error ?? "Loading..."}</div>
-    );
+    if (error) {
+      return (
+        <div
+          className="grid min-h-screen place-items-center bg-background px-6 text-center text-error"
+          role="alert"
+        >
+          {error}
+        </div>
+      );
+    }
+    return <PageSkeleton page="session" />;
   }
 
   return (
