@@ -88,10 +88,24 @@ export const verifyRegistrationCode = async (req, res) => {
 
 export const sendPasswordResetCode = async (req, res) => {
   try {
-    await requestPasswordReset(req.body.email);
-    return res.status(200).json({
-      message: "If an account exists for this email, a reset code has been sent",
+   const result = await requestPasswordReset(req.body.email);
+
+   if(!result.exists) {
+    return res.status(404).json({
+        message: "User is not registered",
+      });
+  }
+
+   if (result.otpSent) {
+      return res.status(200).json({
+        message: "Reset code sent to your registered email",
+      });
+    }
+
+    return res.status(400).json({
+      message: "Password reset is not available for this account",
     });
+
   } catch (err) {
     if (err.message.includes("wait")) {
       return res.status(429).json({ message: err.message });

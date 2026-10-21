@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { randomInt } from "node:crypto";
 import generateToken from "../utils/jwt.js";
 import { sendOtpEmail } from "./mailjetService.js";
+import { exists } from "node:fs";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_INTERVAL_MS = 60 * 1000;
@@ -148,9 +149,12 @@ export const loginUser = async (email, password) => {
 export const requestPasswordReset = async (email) => {
   const normalizedEmail = email.toLowerCase();
   const user = await User.findOne({ email: normalizedEmail });
-  if (user?.password) {
-    await sendOtp(normalizedEmail, "password-reset");
+  if (!user) {
+    return {exists: false, otpSent: false}; 
   }
+    await sendOtp(normalizedEmail, "password-reset");
+
+  return { exists: true, otpSent: true };
 };
 
 export const resetPassword = async (email, code, password) => {

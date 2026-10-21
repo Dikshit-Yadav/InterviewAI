@@ -236,10 +236,7 @@ export default function SessionPage() {
           <ThemeToggle />
         </div>
 
-        <p className="text-sm text-secondary" role="status">
-          Copy and paste are disabled during the interview. Type or speak your
-          own answers.
-        </p>
+        
 
         <ProgressHeader
           current={currentIndex + 1}

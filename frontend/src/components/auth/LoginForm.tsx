@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { AuthService } from "@/services/authService"
-import {toast } from "react-toastify";
+import { AuthService } from "@/services/authService";
+import { toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
 
 import { useEffect, useState } from "react";
@@ -25,14 +25,14 @@ export default function LoginForm() {
     toast.error(
       oauthError === "cancelled"
         ? "Google sign-in was cancelled."
-        : "Google sign-in failed. Please try again."
+        : "Google sign-in failed. Please try again.",
     );
     params.delete("oauth_error");
     const query = params.toString();
     window.history.replaceState(
       null,
       "",
-      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
     );
   }, []);
 
@@ -44,7 +44,9 @@ export default function LoginForm() {
       setResetCodeSent(true);
       toast.info(result.message);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not request a reset code.");
+      toast.error(
+        err?.response?.data?.message || "Could not request a reset code.",
+      );
     } finally {
       setLoading(false);
     }
@@ -54,7 +56,11 @@ export default function LoginForm() {
     if (loading) return;
     setLoading(true);
     try {
-      const result = await AuthService.resetPassword(email, resetCode, newPassword);
+      const result = await AuthService.resetPassword(
+        email,
+        resetCode,
+        newPassword,
+      );
       toast.success(result.message);
       setRecoveringPassword(false);
       setResetCodeSent(false);
@@ -62,7 +68,9 @@ export default function LoginForm() {
       setNewPassword("");
       setPassword("");
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not reset your password.");
+      toast.error(
+        err?.response?.data?.message || "Could not reset your password.",
+      );
     } finally {
       setLoading(false);
     }
@@ -74,16 +82,21 @@ export default function LoginForm() {
       return;
     }
 
-    if(!password){
+    if (!password) {
       toast.error("Password is required");
       return;
     }
-    if(!email){
+    if (!email) {
       toast.error("Email is required");
       return;
     }
-    if((password.trim()).length < 8){
-      toast.error("Password must be at least 8 characters");
+    const passwordRegex =
+      /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]).{8,}$/;
+
+    if (!passwordRegex.test(password.trim())) {
+      toast.error(
+        "Password must be at least 8 characters, with one uppercase letter, one digit, and one special character",
+      );
       return;
     }
 
@@ -102,24 +115,22 @@ export default function LoginForm() {
 
       toast.success("Login successful!");
       navigate("/dashboard");
-
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Something went wrong. Please try again.");
+      toast.error(
+        err?.response?.data?.message ||
+          "Something went wrong. Please try again.",
+      );
       console.log(err);
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
     <div className="w-full max-w-md p-8 rounded-xl border border-border bg-surface">
-
       {/* title */}
       <h2 className="text-2xl font-semibold mb-2">Welcome back</h2>
-      <p className="text-gray-400 mb-6">
-        Sign in to continue your prep.
-      </p>
+      <p className="text-gray-400 mb-6">Sign in to continue your prep.</p>
 
       {recoveringPassword ? (
         <>
@@ -157,7 +168,9 @@ export default function LoginForm() {
                   autoComplete="one-time-code"
                   maxLength={6}
                   value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="6-digit code"
                   className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
                 />
@@ -234,7 +247,11 @@ export default function LoginForm() {
             Forgot password?
           </button>
 
-          <Button className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover" onClick={submit} loading={loading}>
+          <Button
+            className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover"
+            onClick={submit}
+            loading={loading}
+          >
             {loading ? "Signing in..." : "Sign in →"}
           </Button>
 
@@ -247,7 +264,10 @@ export default function LoginForm() {
 
           <p className="text-center text-sm text-gray-400 mt-6">
             New to InterviewAI?{" "}
-            <span className="text-brand cursor-pointer hover:underline" onClick={() => navigate("/signup")}>
+            <span
+              className="text-brand cursor-pointer hover:underline"
+              onClick={() => navigate("/signup")}
+            >
               Create one
             </span>
           </p>
