@@ -61,11 +61,8 @@ export const AuthService = {
     },
 
     googleLogin: () => {
-        const baseURL = API.defaults.baseURL;
-        if (!baseURL) {
-            throw new Error("API URL is not configured");
-        }
-        window.location.assign(new URL(API_ENDPOINTS.AUTH.GOOGLE, baseURL).toString());
+        const googleUrl = API.getUri({ url: API_ENDPOINTS.AUTH.GOOGLE });
+        window.location.assign(new URL(googleUrl, window.location.origin).toString());
     },
 
 };

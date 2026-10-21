@@ -130,6 +130,10 @@ Vite prints the local URL when it starts, typically
 `http://localhost:5173`. The frontend origin must match the backend's
 `CLIENT_URL` setting so credentialed API requests are allowed.
 
+If `VITE_API_URL` is unset, development uses `http://localhost:5000` and a
+production build uses the same-origin `/api` path. The Docker/Nginx setup uses
+`/api` and proxies it to the backend automatically.
+
 ## Run with Docker
 
 Docker Compose runs MongoDB, the Node.js API, and a production-built frontend
