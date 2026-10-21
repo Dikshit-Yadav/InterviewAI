@@ -29,14 +29,26 @@ export default function NavigationControls({
         Previous
       </Button>
 
-      <Button
-        onClick={isLast ? onFinish : onNext}
-        loading={submitting}
-        className="bg-brand text-primary-foreground hover:bg-brand-hover"
-      >
-        {submitting ? "Evaluating..." : isLast ? "Finish & Get Report" : "Next"}
-        {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
+      <div className="flex flex-wrap justify-end gap-3">
+        {!isLast && (
+          <Button
+            variant="outline"
+            onClick={onFinish}
+            disabled={submitting}
+            className="border-border"
+          >
+            Finish early
+          </Button>
+        )}
+        <Button
+          onClick={isLast ? onFinish : onNext}
+          loading={submitting}
+          className="bg-brand text-primary-foreground hover:bg-brand-hover"
+        >
+          {submitting ? "Evaluating..." : isLast ? "Finish & Get Report" : "Next"}
+          {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
       </Button>
+      </div>
     </div>
   )
 }

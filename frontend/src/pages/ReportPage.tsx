@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { interviewService } from "@/services/interviewServices";
 import Nabar from "@/components/dashboard/DashboardNavbar";
 import ScoreCard from "@/components/report/ScoreCard";
@@ -25,9 +25,14 @@ export default function ReportPage() {
       try {
         const data = await interviewService.generateReport(id);
         if (active) setReport(data);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load report", err);
-        if (active) setError("Could not load this report. Please try again.");
+        if (active) {
+          setError(
+            err?.response?.data?.message ||
+              "Could not load this report. Please try again.",
+          );
+        }
       }
     };
 
@@ -39,9 +44,19 @@ export default function ReportPage() {
 
   if (error) {
     return (
-      <p className="grid min-h-screen place-items-center bg-background px-6 text-center text-error" role="alert">
-        {error}
-      </p>
+      <div className="grid min-h-screen place-items-center bg-background px-6 text-center">
+        <div className="space-y-4" role="alert">
+          <p className="text-error">{error}</p>
+          {id && (
+            <Link
+              to={`/interview/${id}`}
+              className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-hover"
+            >
+              Return to interview
+            </Link>
+          )}
+        </div>
+      </div>
     );
   }
   if (!report) return <PageSkeleton page="report" />;

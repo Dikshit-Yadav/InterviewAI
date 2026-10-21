@@ -106,8 +106,55 @@ export default function SessionPage() {
     }
   };
 
+  const handleFinish = async () => {
+    if (!interviewId || !currentQuestion || submitting) return;
+    const introduction = questions.find((question) => question.order === 1);
+    if (!answers[introduction?._id ?? ""]?.trim()) {
+      setError("A brief introduction is required before you finish.");
+      return;
+    }
+
+    const unanswered = questions.filter(
+      (question) => !answers[question._id]?.trim(),
+    ).length;
+    if (
+      unanswered > 0 &&
+      !window.confirm(
+        `${unanswered} question(s) are unanswered and will score 0. Finish the interview and generate your report?`,
+      )
+    ) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      await interviewService.submitInterview(
+        interviewId,
+        questions.map((question) => ({
+          questionId: question._id,
+          answer: (answers[question._id] ?? "").trim(),
+        })),
+      );
+      localStorage.removeItem(draftKey(interviewId));
+      navigate(`/report/${interviewId}`);
+    } catch (err: any) {
+      console.error("Could not finish interview", err);
+      setError(
+        err?.response?.data?.message ||
+          "Could not finish the interview. Your answers are saved; please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleNext = async () => {
     if (!interviewId || !currentQuestion || submitting) return;
+    if (currentIndex === questions.length - 1) {
+      await handleFinish();
+      return;
+    }
     const answer = (answers[currentQuestion._id] ?? "").trim();
     if (currentQuestion.order === 1 && !answer) {
       setError("A brief introduction is required before you continue.");
@@ -148,28 +195,7 @@ export default function SessionPage() {
 
       if (currentIndex < questions.length - 1) {
         setCurrentIndex((index) => index + 1);
-        return;
       }
-
-      const unanswered = questions.length - answeredCount;
-      if (
-        unanswered > 0 &&
-        !window.confirm(
-          `${unanswered} question(s) are unanswered and will score 0. Submit anyway?`
-        )
-      ) {
-        return;
-      }
-
-      await interviewService.submitInterview(
-        interviewId,
-        questions.map((question) => ({
-          questionId: question._id,
-          answer: (answers[question._id] ?? "").trim(),
-        }))
-      );
-      localStorage.removeItem(draftKey(interviewId));
-      navigate(`/report/${interviewId}`);
     } catch (err: any) {
       console.error("Could not continue interview", err);
       setError(
@@ -255,7 +281,7 @@ export default function SessionPage() {
         <NavigationControls
           onPrev={handlePrev}
           onNext={handleNext}
-          onFinish={handleNext}
+          onFinish={handleFinish}
           isLast={isLastQuestion}
           disablePrev={currentIndex === 0}
           submitting={submitting}

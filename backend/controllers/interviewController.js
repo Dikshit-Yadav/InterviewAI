@@ -142,7 +142,12 @@ export const generateReport = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await assertInterviewOwner(req.user.id, id);
+    const session = await assertInterviewOwner(req.user.id, id);
+    if (session.status !== "completed") {
+      return res.status(409).json({
+        message: "Finish the interview before opening its report.",
+      });
+    }
     const report = await generateReportService(id);
 
     res.status(200).json(report);
