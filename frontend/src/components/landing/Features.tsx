@@ -49,7 +49,7 @@ export default function Features() {
             key={i}
             className="p-6 rounded-xl border border-border bg-surface hover:bg-surface-hover transition"
           >
-            <f.icon className="w-6 h-6 mb-4 text-accent" />
+            <f.icon className="w-6 h-6 mb-4 text-accent-700" />
             <h3 className="font-semibold mb-2">{f.title}</h3>
             <p className="text-sm text-gray-400">{f.desc}</p>
           </div>

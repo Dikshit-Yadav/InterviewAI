@@ -7,7 +7,7 @@ export default function Hero() {
     <section className="relative text-center py-28 px-6 overflow-hidden">
       
       <div className="inline-block mb-6 px-4 py-1 text-sm rounded-full bg-surface border border-border text-text-secondary">
-        ✨ Powered by AI · Free to start
+        ✨ Powered by Dikshit Yadav · Free to start
       </div>
 
       <h1 className="text-5xl md:text-6xl font-bold leading-tight max-w-4xl mx-auto">

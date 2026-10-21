@@ -7,7 +7,7 @@ const steps = [
   {
     no: "02",
     title: "Answer questions",
-    desc: "5–7 AI-generated questions, one at a time, with a built-in timer.",
+    desc: "10–15 AI-generated questions, one at a time, with a built-in timer and ask follow-up questions.",
   },
   {
     no: "03",
@@ -30,9 +30,9 @@ export default function HowItWorks() {
         {steps.map((step, i) => (
           <div
             key={i}
-            className="p-6 rounded-xl border border-border bg-surface"
+            className="p-6 rounded-xl border border-border bg-surface hover:bg-surface-hover transition"
           >
-            <div className="text-accent text-2xl font-bold mb-4">
+            <div className="text-accent-900 text-2xl font-bold mb-4 ">
               {step.no}
             </div>
             <h3 className="font-semibold mb-2">{step.title}</h3>

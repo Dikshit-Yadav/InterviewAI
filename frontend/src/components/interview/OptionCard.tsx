@@ -22,7 +22,7 @@ export default function OptionCard({
         selected && "border-brand bg-surface-hover"
       )}
     >
-      {Icon && <Icon className="w-5 h-5 text-accent" />}
+      {Icon && <Icon className="w-5 h-5 text-accent-1" />}
       <p className="text-sm">{title}</p>
     </Card>
   )
