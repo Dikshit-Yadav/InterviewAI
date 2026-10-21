@@ -161,9 +161,7 @@ export const resetPassword = async (email, code, password) => {
   const normalizedEmail = email.toLowerCase();
   const challenge = await verifyOtp(normalizedEmail, code, "password-reset");
   const user = await User.findOne({ email: normalizedEmail });
-  if (!user?.password) {
-    throw new Error("Password reset is unavailable for this account");
-  }
+  if (!user) throw new Error("User is not registered");
 
   const consumed = await EmailOtp.deleteOne({
     _id: challenge._id,
