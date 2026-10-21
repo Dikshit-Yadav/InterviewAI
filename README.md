@@ -148,9 +148,10 @@ on the internal Compose network.
    default; to use a managed MongoDB database instead, set the `MONGO_URI`
    environment variable before starting Compose. That URI must be reachable
    from inside the backend container.
-2. For Google sign-in, set `GOOGLE_CALLBACK_URL` to the public callback URL,
-   for example `http://localhost:8080/api/auth/google/callback`, and add that
-   exact URL to the OAuth client's authorized redirect URIs.
+2. For Google sign-in, set `GOOGLE_CALLBACK_URL` to
+   `http://localhost:8080/auth/google/callback` and add that exact URL to the
+   OAuth client's authorized redirect URIs. Nginx proxies this callback path
+   directly to the backend.
 3. From the repository root, build and start the containers:
 
    ```bash
@@ -188,7 +189,7 @@ renew TLS certificates automatically.
    `backend/.env.example`; set `CLIENT_URL=https://your-domain.example`,
    configure the required AI/email secrets, and set Google OAuth credentials
    if using Google sign-in. For Google OAuth, also set
-   `GOOGLE_CALLBACK_URL=https://your-domain.example/api/auth/google/callback`
+   `GOOGLE_CALLBACK_URL=https://your-domain.example/auth/google/callback`
    and register that exact callback URL with Google.
 4. Run the deploy script from the project root:
 
