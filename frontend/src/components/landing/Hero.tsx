@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-
+import{Check} from "lucide-react";
 export default function Hero() {
   const navigate = useNavigate();
   return (
@@ -40,9 +40,9 @@ export default function Hero() {
       </div>
 
       <div className="flex justify-center gap-6 mt-8 text-sm text-gray-400 flex-wrap">
-        <div>✅ 7 roles</div>
-        <div>✅ 4 interview types</div>
-        <div>✅ Instant feedback</div>
+        <div><Check className="w-4 h-4 text-green-500 inline mr-2" /> 7 roles</div>
+        <div><Check className="w-4 h-4 text-green-500 inline mr-2" /> 4 interview types</div>
+        <div><Check className="w-4 h-4 text-green-500 inline mr-2" /> Instant feedback</div>
       </div>
     </section>
   );
