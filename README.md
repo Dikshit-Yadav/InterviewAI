@@ -37,6 +37,7 @@ from resume content, and build a downloadable resume.
 InterviewAI/
 ├── backend/       Express API and MongoDB services
 ├── frontend/      React application
+├── docker-compose.yml
 └── README.md
 ```
 
@@ -87,6 +88,11 @@ GOOGLE_CALLBACK_URL=<your-backend-google-callback-url>
 LOG_LEVEL=debug
 ```
 
+The same keys are listed in `backend/.env.example`; copy it to `backend/.env`
+and replace the placeholders. The example MongoDB URI is for Docker Compose. For
+local development outside Docker, use a MongoDB URI reachable from your host,
+such as `mongodb://127.0.0.1:27017/interviewai`.
+
 Configure the Google OAuth client to allow the callback URL used in
 `GOOGLE_CALLBACK_URL`. Keep backend credentials private and never commit `.env`
 files.
@@ -110,6 +116,8 @@ Create `frontend/.env`:
 VITE_API_URL=http://localhost:5000
 ```
 
+For local development, `frontend/.env.example` contains this API URL.
+
 Install frontend dependencies and start Vite:
 
 ```bash
@@ -121,6 +129,85 @@ npm run dev
 Vite prints the local URL when it starts, typically
 `http://localhost:5173`. The frontend origin must match the backend's
 `CLIENT_URL` setting so credentialed API requests are allowed.
+
+## Run with Docker
+
+Docker Compose runs MongoDB, the Node.js API, and a production-built frontend
+served by Nginx. MongoDB data is persisted in a named Docker volume. Nginx
+serves the React application, supports client-side routes, and proxies requests
+from `/api/` to the backend service. MongoDB and the backend are available only
+on the internal Compose network.
+
+1. Configure `backend/.env` using `backend/.env.example` as a template. Set
+   `CLIENT_URL` to the origin where the browser will open the app, for example
+   `http://localhost:8080`. Compose uses its included MongoDB container by
+   default; to use a managed MongoDB database instead, set the `MONGO_URI`
+   environment variable before starting Compose. That URI must be reachable
+   from inside the backend container.
+2. For Google sign-in, set `GOOGLE_CALLBACK_URL` to the public callback URL,
+   for example `http://localhost:8080/api/auth/google/callback`, and add that
+   exact URL to the OAuth client's authorized redirect URIs.
+3. From the repository root, build and start the containers:
+
+   ```bash
+   docker compose up --build
+   ```
+
+4. Open `http://localhost:8080`. To use another host port, set
+   `FRONTEND_PORT` before starting Compose, and update `CLIENT_URL` and the
+   Google OAuth callback URL to match.
+
+Stop the containers with `Ctrl+C`, or stop and remove them with:
+
+```bash
+docker compose down
+```
+
+The frontend image receives `VITE_API_URL=/api` at build time. The default
+Compose command serves HTTP for local use. To remove the MongoDB data volume as
+well as stop the stack, run `docker compose down --volumes`.
+
+### Deploy on an EC2 instance
+
+The root-level `deploy-ec2.sh` script installs Docker if needed, validates the
+backend configuration, builds the images, starts the Compose stack, and waits
+for the HTTPS website to respond. The HTTPS profile uses Caddy to obtain and
+renew TLS certificates automatically.
+
+1. Launch an Amazon Linux 2023 or Ubuntu EC2 instance. Configure its security
+   group to allow inbound TCP `22` from your trusted IP and TCP `80` and `443`
+   from the intended website audience. Do not expose backend port `5000` or
+   MongoDB port `27017`.
+2. Point a domain's DNS A record to the instance's public IP. Keep the instance
+   public IP stable (for example, assign an Elastic IP).
+3. Copy or clone this project onto the instance. Create `backend/.env` from
+   `backend/.env.example`; set `CLIENT_URL=https://your-domain.example`,
+   configure the required AI/email secrets, and set Google OAuth credentials
+   if using Google sign-in. For Google OAuth, also set
+   `GOOGLE_CALLBACK_URL=https://your-domain.example/api/auth/google/callback`
+   and register that exact callback URL with Google.
+4. Run the deploy script from the project root:
+
+   ```bash
+   chmod +x deploy-ec2.sh
+   APP_DOMAIN=your-domain.example ./deploy-ec2.sh
+   ```
+
+   If the EC2 user cannot access Docker directly, run the script with `sudo`
+   while keeping `APP_DOMAIN` in the environment:
+
+   ```bash
+   sudo APP_DOMAIN=your-domain.example ./deploy-ec2.sh
+   ```
+
+The script binds the frontend's internal HTTP port to localhost; public traffic
+is served over HTTPS by Caddy. Compose persists MongoDB data and Caddy
+certificates in named Docker volumes. To inspect a deployment, run
+`docker compose --profile https ps` and
+`docker compose --profile https logs --tail=100`. To stop the services, run
+`docker compose --profile https down` from the project root. Do not use
+`--volumes` unless you intentionally want to delete the database and stored
+certificates.
 
 ## Available scripts
 
