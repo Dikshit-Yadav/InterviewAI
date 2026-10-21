@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ClipboardEvent, KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import ProgressHeader from "@/components/session/ProgressHeader";
@@ -35,6 +36,16 @@ const loadDraft = (interviewId?: string): Record<string, string> => {
   } catch (error) {
     console.error("Could not read saved interview answers", error);
     return {};
+  }
+};
+
+const preventClipboardAction = (event: ClipboardEvent<HTMLDivElement>) => {
+  event.preventDefault();
+};
+
+const preventClipboardShortcuts = (event: KeyboardEvent<HTMLDivElement>) => {
+  if ((event.ctrlKey || event.metaKey) && ["c", "v", "x"].includes(event.key.toLowerCase())) {
+    event.preventDefault();
   }
 };
 
@@ -176,12 +187,24 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground px-6 py-10">
+    <div
+      className="min-h-screen bg-background text-foreground px-6 py-10"
+      onCopy={preventClipboardAction}
+      onCut={preventClipboardAction}
+      onPaste={preventClipboardAction}
+      onContextMenu={(event) => event.preventDefault()}
+      onKeyDown={preventClipboardShortcuts}
+    >
       <div className="max-w-4xl mx-auto space-y-6">
 
         <div className="flex justify-end">
           <ThemeToggle />
         </div>
+
+        <p className="text-sm text-secondary" role="status">
+          Copy and paste are disabled during the interview. Type or speak your
+          own answers.
+        </p>
 
         <ProgressHeader
           current={currentIndex + 1}
