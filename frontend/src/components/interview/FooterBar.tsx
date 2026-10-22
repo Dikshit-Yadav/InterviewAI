@@ -37,12 +37,12 @@ export default function FooterBar({
       const res = await interviewService.startInterview(validation.data);
       console.log(res.interviewId);
       navigate(`/interview/${res.interviewId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to start interview:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Could not start the interview. Please try again."
+        error?.response?.data?.message ||
+          error?.message ||
+          "Could not start the interview. Please try again."
       );
       setLoading(false);
     }

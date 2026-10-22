@@ -74,7 +74,6 @@ const questionMixGuidance = (interviewType) =>
       ? "Across the 7 questions include conceptual questions, exactly 2 short output/behavior prediction questions using a small relevant pseudocode or API/data-flow snippet in fenced code blocks, and exactly 1 logical or tricky trade-off question. Match complexity to the candidate level."
       : "Across the 7 questions include conceptual questions, exactly 2 short output/behavior prediction questions grounded in realistic workplace scenarios, and exactly 1 logical or tricky scenario question. Keep them relevant to this interview type and the candidate level.";
 
-// Generate seven planned questions; the required introduction is prepended separately.
 export const generateQuestions = async (role, experience, interviewType) => {
   try {
     const prompt = `
@@ -89,8 +88,10 @@ Return valid JSON only: {"questions":["question 1","question 2","question 3","qu
       messages: [
         { role: "user", content: prompt }
       ],
-       response_format: { type: "json_object" },
+      response_format: { type: "json_object" },
       temperature: 0.7,
+      ...lowReasoning(interviewModel),
+      max_completion_tokens: 1800,
     });
 
     const text = response.choices[0]?.message?.content;
@@ -101,8 +102,24 @@ Return valid JSON only: {"questions":["question 1","question 2","question 3","qu
     ];
 
   } catch (error) {
-    logger.error({ err: error }, "Question generation failed");
-    throw new Error(error.message);
+    logger.error(
+      {
+        err: error,
+        providerStatus: error.status,
+        providerCode: error.code,
+        providerType: error.type,
+      },
+      "Question generation failed"
+    );
+    throw Object.assign(
+      new Error("The AI service could not generate interview questions", {
+        cause: error,
+      }),
+      {
+        status: error.status === 429 ? 503 : 502,
+        isAiError: true,
+      }
+    );
   }
 };
 

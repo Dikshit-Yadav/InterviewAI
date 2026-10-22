@@ -44,8 +44,23 @@ export const startInterview = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error({ err: error, requestId: req.id }, "Could not start interview");
-    res.status(400).json({ message: error.message });
+    const isAiError = error.isAiError === true;
+    const status = isAiError ? error.status : 400;
+    logger.error(
+      {
+        err: error,
+        providerStatus: error.status,
+        providerCode: error.code,
+        requestId: req.id,
+      },
+      "Could not start interview"
+    );
+    res.status(status).json({
+      message: isAiError
+        ? "The AI service could not generate interview questions. Please try again."
+        : error.message,
+    });
+
   }
 };
 
