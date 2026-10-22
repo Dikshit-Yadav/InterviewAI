@@ -1,6 +1,8 @@
 import {useNavigate} from "react-router-dom"
+import type { InterviewHistoryItem } from "@/types/api";
+
 type Props = {
-  history: any[];
+  history: InterviewHistoryItem[];
 };
 
 export default function HistorySection({ history }: Props) {

@@ -5,6 +5,10 @@ import {
     submitAnswersSchema,
     type InterviewStartData,
 } from "@/lib/validation";
+import type {
+    InterviewHistoryItem,
+    InterviewReport,
+} from "@/types/api";
 
 export const interviewService = {
     startInterview: async (data: InterviewStartData) => {
@@ -87,12 +91,12 @@ export const interviewService = {
         const res = await API.post(`/interview/submit/${validatedId}`, validatedAnswers);
         return res.data;
     },
-    generateReport: async (interviewId: string) => {
+    generateReport: async (interviewId: string): Promise<InterviewReport> => {
         const validatedId = interviewIdSchema.parse(interviewId);
         const res = await API.post(`/interview/generate-report/${validatedId}`);
         return res.data;
     },
-    getHistory: async () => {
+    getHistory: async (): Promise<InterviewHistoryItem[]> => {
       const res = await API.get("/history");
       return res.data;
     },

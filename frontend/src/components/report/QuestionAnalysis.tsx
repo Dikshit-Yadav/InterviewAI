@@ -1,11 +1,13 @@
-type Props = { report: any };
+import type { InterviewReport } from "@/types/api";
+
+type Props = { report: InterviewReport };
 
 export default function QuestionAnalysis({ report }: Props) {
   return (
     <div className="space-y-4">
       <h3 className="font-semibold">Question-by-question</h3>
 
-      {report.answers?.map((a: any, i: number) => (
+      {report.answers?.map((a, i) => (
         <div key={i} className="p-5 bg-surface border border-border rounded-xl">
 
           <h4 className="font-medium mb-2">

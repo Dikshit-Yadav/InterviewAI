@@ -8,9 +8,10 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import type { DashboardReportSummary } from "@/types/api";
 
 type Props = {
-  reports: any[];
+  reports: DashboardReportSummary[];
 };
 
 export default function PerformanceSection({ reports }: Props) {

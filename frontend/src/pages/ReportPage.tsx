@@ -8,10 +8,12 @@ import LearningPath from "@/components/report/LearningPath";
 import TipsSection from "@/components/report/TipsSection";
 import QuestionAnalysis from "@/components/report/QuestionAnalysis";
 import PageSkeleton from "@/components/ui/PageSkeleton";
+import { getErrorMessage } from "@/lib/apiError";
+import type { InterviewReport } from "@/types/api";
 
 export default function ReportPage() {
   const { id } = useParams();
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<InterviewReport | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,13 +27,10 @@ export default function ReportPage() {
       try {
         const data = await interviewService.generateReport(id);
         if (active) setReport(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to load report", err);
         if (active) {
-          setError(
-            err?.response?.data?.message ||
-              "Could not load this report. Please try again.",
-          );
+          setError(getErrorMessage(err, "Could not load this report. Please try again."));
         }
       }
     };

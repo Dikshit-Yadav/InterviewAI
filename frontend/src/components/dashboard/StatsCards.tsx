@@ -1,5 +1,7 @@
+import type { DashboardData } from "@/types/api";
+
 type Props = {
-  data: any;
+  data: DashboardData;
 };
 
 export default function StatsCards({ data }: Props) {

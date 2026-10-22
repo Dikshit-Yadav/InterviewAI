@@ -1,4 +1,6 @@
-type Props = { report: any };
+import type { InterviewReport } from "@/types/api";
+
+type Props = { report: InterviewReport };
 
 export default function ScoreCard({ report }: Props) {
   return (

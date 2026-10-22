@@ -4,6 +4,7 @@ import {useNavigate} from "react-router-dom"
 import {interviewService} from "@/services/interviewServices"
 import { toast } from "react-toastify"
 import { interviewStartSchema } from "@/lib/validation"
+import { getErrorMessage } from "@/lib/apiError";
 
 type Props = {
   role: string | null
@@ -40,13 +41,9 @@ export default function FooterBar({
       const res = await interviewService.startInterview(validation.data);
       console.log(res.interviewId);
       navigate(`/interview/${res.interviewId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to start interview:", error);
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Could not start the interview. Please try again."
-      );
+      toast.error(getErrorMessage(error, "Could not start the interview. Please try again."));
       setLoading(false);
     }
   }
