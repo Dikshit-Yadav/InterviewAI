@@ -215,7 +215,7 @@ export default function ResumeBuilder() {
     <section className="my-8 space-y-5 rounded-xl border border-border bg-surface p-5 sm:p-6">
       <div>
         <h2 className="text-xl font-semibold text-foreground">Generate a resume</h2>
-        <p className="mt-1 text-sm text-secondary">
+        <p className="mt-1 text-sm text-100">
           Add your details using the sections from the provided resume template.
           Your information is used only for the preview and is not uploaded or saved.
         </p>

@@ -15,16 +15,22 @@ from resume content, and build a downloadable resume.
   works with.
 - AI-generated interview questions, answer-dependent follow-ups, and feedback
   reports.
+- Finish-early confirmation that explains unanswered questions receive a score
+  of zero before the candidate submits the interview.
 - Resume review with ATS-oriented recommendations and practice questions.
 - Resume-based interview questions, including questions about listed projects.
 - Resume builder with repeatable experience, project, and education entries,
   a preview, and browser-based PDF download.
 - Light and dark themes.
 - Interview answer entry by keyboard or speech recognition. The active session
-  disables common copy, cut, and paste actions in the browser.
+  disables common copy, cut, and paste actions in the browser and offers a
+  fullscreen focus mode with a resume gate if fullscreen is exited. A warning
+  is shown when the user attempts to reload or close the page before submitting.
 
 > Copy/paste restrictions are client-side browser behavior and are not a
-> security boundary.
+> security boundary. Browsers do not let websites prevent users from exiting
+> fullscreen or closing a tab, and may not show a custom leave-page message.
+> Interview drafts are saved so users can resume if they leave.
 
 ## Technology
 
@@ -324,10 +330,28 @@ authenticated cookie.
 | `POST` | `/interview/review-resume` | Review an uploaded resume |
 | `GET` | `/interview/questions/:id` | Get questions for an interview |
 | `POST` | `/interview/follow-up/:id` | Request an answer-dependent follow-up |
+| `POST` | `/interview/technologies/:id` | Submit technologies when asked and generate scoped questions |
 | `POST` | `/interview/submit/:id` | Submit interview answers |
 | `POST` | `/interview/generate-report/:id` | Generate interview feedback |
 
 Resume upload endpoints accept one PDF or DOCX file up to 5 MB.
+
+For a configured interview, `POST /interview/start` accepts `role`,
+`experience`, `interviewType`, and an optional `technologies` string. List
+technologies separated by commas, semicolons, or new lines (up to 20 entries).
+When `technologies` is omitted or blank, the interview begins with an
+introduction followed by a technology question. Submit the technology answer
+to `POST /interview/technologies/:id`:
+
+```json
+{
+  "questionId": "<technology-question-id>",
+  "technologies": "HTML, CSS, React"
+}
+```
+
+The service then generates the remaining questions within that technology
+scope.
 
 ## Privacy and security notes
 
@@ -339,6 +363,9 @@ Resume upload endpoints accept one PDF or DOCX file up to 5 MB.
   PDF printing; it does not upload them to the backend.
 - Browser copy/paste restrictions can be bypassed and should not be relied on
   to protect interview content.
+- Fullscreen and the reload/close warning are browser focus features, not
+  tamper-proof controls. The user can exit fullscreen or close the tab; saved
+  interview drafts allow them to resume.
 
 ## Troubleshooting
 

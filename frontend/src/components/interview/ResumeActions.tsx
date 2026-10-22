@@ -73,11 +73,11 @@ export default function ResumeActions() {
         <h2 className="text-xl font-semibold text-foreground">
           Use your resume
         </h2>
-        <p className="mt-1 text-sm text-secondary">
+        <p className="mt-1 text-sm text-100">
           Upload a PDF or DOCX (up to 5 MB). Resume text is sent to the AI
           provider to generate results and is not saved by InterviewAI.
         </p>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-100">
           Resume interviews use an intermediate technical interview format.
         </p>
       </div>
