@@ -61,7 +61,7 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold text-foreground">
               Practice with your resume
             </h2>
-            <p className="mt-1 text-sm text-secondary">
+            <p className="mt-1 text-sm text-100">
               Review your resume or start an interview with questions based on
               your experience and projects.
             </p>

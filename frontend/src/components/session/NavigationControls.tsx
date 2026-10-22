@@ -21,7 +21,7 @@ export default function NavigationControls({
     <div className="flex justify-between items-center">
       <Button
         variant="outline"
-        onClick={onPrev}
+        onClick={() => onPrev()}
         disabled={disablePrev || submitting}
         className="border-gray-700"
       >
@@ -33,7 +33,7 @@ export default function NavigationControls({
         {!isLast && (
           <Button
             variant="outline"
-            onClick={onFinish}
+            onClick={() => onFinish()}
             disabled={submitting}
             className="border-border"
           >
@@ -41,7 +41,7 @@ export default function NavigationControls({
           </Button>
         )}
         <Button
-          onClick={isLast ? onFinish : onNext}
+          onClick={() => (isLast ? onFinish() : onNext())}
           loading={submitting}
           className="bg-brand text-primary-foreground hover:bg-brand-hover"
         >
