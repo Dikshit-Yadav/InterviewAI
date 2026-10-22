@@ -30,6 +30,7 @@ from resume content, and build a downloadable resume.
 - **AI:** Groq API
 - **Email:** Mailjet API
 - **Authentication:** JWT cookies and Google OAuth
+- **Logging:** Pino pretty console output and date-rotated JSON log files
 
 ## Project layout
 
@@ -217,6 +218,23 @@ certificates.
 ## Available scripts
 
 Run these commands from the corresponding `frontend/` or `backend/` directory.
+
+### Backend logs
+
+The backend prints one readable request log line containing the level, time,
+process ID, hostname, service, environment, request ID/method/URL/query,
+remote address, user agent, response status, response time, and message.
+Sensitive query keys such as OAuth codes/state, tokens, passwords, OTPs, and
+email values are redacted.
+
+Structured JSON logs are also written to `backend/logs/` in separate daily
+files named with the date, for example `interviewai.2026-10-22.1.log`. Up to 30
+rotated daily files plus the current active file are retained. In Docker
+Compose, the `backend_logs` named volume persists these files across container
+recreation; on EC2 they remain in that volume. Use `docker compose exec backend
+ls -l /app/logs` to list files and
+`docker compose exec backend sh -c 'tail -n 100 /app/logs/<log-file>'` to read
+one. `LOG_LEVEL` controls which levels are written to console and file.
 
 | Package | Command | Description |
 | --- | --- | --- |
