@@ -218,6 +218,56 @@ certificates in named Docker volumes. To inspect a deployment, run
 `--volumes` unless you intentionally want to delete the database and stored
 certificates.
 
+## GitHub Actions CI/CD
+
+The `.github/workflows/ci-cd.yml` workflow runs on pull requests and pushes to
+`main`. It installs locked dependencies, lints/tests/builds the frontend,
+checks backend JavaScript syntax, and builds both production Docker images.
+Successful pushes to `main` deploy to EC2 only after all CI jobs pass.
+
+Configure a GitHub Actions environment named `production` with these secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `EC2_HOST` | Public DNS name or IP address of the EC2 instance |
+| `EC2_USER` | SSH user that can access the deployed repository and Docker |
+| `EC2_SSH_PRIVATE_KEY` | Private SSH key matching an authorized EC2 key |
+| `EC2_KNOWN_HOSTS` | Verified SSH host-key line for the EC2 instance |
+
+Add these variables to the same `production` environment:
+
+| Variable | Purpose |
+| --- | --- |
+| `EC2_APP_PATH` | Absolute path to the repository checkout on EC2 |
+| `APP_DOMAIN` | Public domain name configured in DNS and Caddy |
+
+Before enabling deployments, clone this repository onto EC2 at `EC2_APP_PATH`,
+configure `backend/.env` there, ensure the EC2 user can run Docker Compose and
+pull the repository's `main` branch, and verify that `./deploy-ec2.sh` works
+manually. The workflow updates that checkout with `git pull --ff-only` and
+runs the existing deploy script. Keep application credentials in the EC2
+`backend/.env`; they are not copied into GitHub Actions.
+
+Restrict the `production` environment to the `main` branch and consider
+requiring deployment approval. Protect `main` with required CI checks before
+merging pull requests.
+
+### Gemini pull request review
+
+The `.github/workflows/gemini-pr-review.yml` workflow reviews non-draft pull
+requests and updates a single review comment when new commits are pushed. It
+uses `pull_request_target` to access the review secret safely: it checks out
+only the pull request's trusted base commit, never checks out or executes the
+untrusted pull request branch, and sends the textual diff to the Gemini API.
+
+Create a GitHub Actions environment named `gemini-review` and add the
+`GEMINI_API_KEY` secret there. This key is sent to Google's Gemini API with
+the pull request diff; do not use this reviewer for repositories whose code
+must not be shared with that service. Keep the workflow restricted to
+trusted maintainers, and use required reviewers on the environment if
+pull-request contributors should not trigger API calls. The review is
+advisory and does not replace CI or human review.
+
 ## Available scripts
 
 Run these commands from the corresponding `frontend/` or `backend/` directory.

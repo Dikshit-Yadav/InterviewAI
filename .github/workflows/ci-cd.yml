@@ -1,0 +1,139 @@
+name: CI and CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Test frontend
+        run: npm test
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          VITE_API_URL: /api
+
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Check backend JavaScript syntax
+        run: find . -path './node_modules' -prune -o -name '*.js' -type f -print0 | xargs -0 -r -n 1 node --check
+        working-directory: backend
+
+  container-build:
+    name: Build deployment images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: false
+          tags: interviewai-backend:ci
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          build-args: |
+            VITE_API_URL=/api
+          tags: interviewai-frontend:ci
+
+  deploy:
+    name: Deploy to EC2
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [frontend, backend, container-build]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy the latest main branch
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+          EC2_APP_PATH: ${{ vars.EC2_APP_PATH }}
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+        run: |
+          set -euo pipefail
+          : "${EC2_HOST:?Set EC2_HOST in the production environment secrets}"
+          : "${EC2_USER:?Set EC2_USER in the production environment secrets}"
+          : "${EC2_SSH_PRIVATE_KEY:?Set EC2_SSH_PRIVATE_KEY in the production environment secrets}"
+          : "${EC2_KNOWN_HOSTS:?Set EC2_KNOWN_HOSTS in the production environment secrets}"
+          : "${EC2_APP_PATH:?Set EC2_APP_PATH in the production environment variables}"
+          : "${APP_DOMAIN:?Set APP_DOMAIN in the production environment variables}"
+          [[ "$EC2_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "EC2_HOST must be a hostname or IP address" >&2; exit 1; }
+          [[ "$EC2_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "EC2_USER contains unsupported characters" >&2; exit 1; }
+          [[ "$EC2_APP_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "EC2_APP_PATH must be an absolute path using only letters, digits, dots, underscores, slashes, and hyphens" >&2; exit 1; }
+          [[ "$APP_DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$ ]] || { echo "APP_DOMAIN must be a public DNS name" >&2; exit 1; }
+
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          chmod 600 "$key_file"
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > "$key_file"
+
+          ssh \
+            -i "$key_file" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=<(printf '%s\n' "$EC2_KNOWN_HOSTS") \
+            "$EC2_USER@$EC2_HOST" \
+            "cd '$EC2_APP_PATH' && git pull --ff-only origin main && APP_DOMAIN='$APP_DOMAIN' ./deploy-ec2.sh"
