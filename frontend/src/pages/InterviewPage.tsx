@@ -9,6 +9,7 @@ import FooterBar from "@/components/interview/FooterBar"
 
 export default function InterviewPage() {
   const [role, setRole] = useState<string | null>(null)
+  const [technologies, setTechnologies] = useState("")
   const [level, setLevel] = useState("Intermediate")
   const [type, setType] = useState("Technical Interview")
 
@@ -22,11 +23,36 @@ export default function InterviewPage() {
 
           <RoleSelector value={role} onChange={setRole} />
 
+          <div className="space-y-2">
+            <label htmlFor="interview-technologies" className="font-semibold">
+              Technologies you work with <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              id="interview-technologies"
+              type="text"
+              maxLength={500}
+              value={technologies}
+              onChange={(event) => setTechnologies(event.target.value)}
+              placeholder="For example: HTML, CSS, Bootstrap, React"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-describedby="interview-technologies-help"
+            />
+            <p id="interview-technologies-help" className="text-sm text-100">
+              Questions will stay within the technologies you list. If you leave
+              this blank, the interview will ask which technologies you use first.
+            </p>
+          </div>
+
           <ExperienceSelector value={level} onChange={setLevel} />
 
           <InterviewTypeSelector value={type} onChange={setType} />
 
-          <FooterBar role={role} experience={level} interviewType={type}/>
+          <FooterBar
+            role={role}
+            technologies={technologies}
+            experience={level}
+            interviewType={type}
+          />
         </div>
       </div>
     </div>

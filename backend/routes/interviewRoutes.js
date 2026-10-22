@@ -5,6 +5,7 @@ import {
   reviewUploadedResume,
   getQuestions,
   getAnswerFollowUp,
+  resolveTechnologies,
   generateReport,
   submitInterview,
 } from "../controllers/interviewController.js";
@@ -15,6 +16,7 @@ import {
   interviewIdParamsSchema,
   interviewFollowUpBodySchema,
   interviewStartBodySchema,
+  interviewTechnologiesBodySchema,
   resumeInterviewBodySchema,
   submitAnswersBodySchema,
 } from "../validation/schemas.js";
@@ -54,6 +56,15 @@ router.post(
     body: interviewFollowUpBodySchema,
   }),
   getAnswerFollowUp
+);
+router.post(
+  "/technologies/:id",
+  authMiddleware,
+  validateRequest({
+    params: interviewIdParamsSchema,
+    body: interviewTechnologiesBodySchema,
+  }),
+  resolveTechnologies
 );
 router.post(
   "/submit/:id",

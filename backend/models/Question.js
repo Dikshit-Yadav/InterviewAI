@@ -22,6 +22,10 @@ const questionSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    isTechnologyClarification: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

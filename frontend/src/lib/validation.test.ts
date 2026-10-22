@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resumeBuilderSchema } from "./validation";
+import { interviewStartSchema, resumeBuilderSchema } from "./validation";
 
 const validResume = {
   name: "Ada Example",
@@ -33,6 +33,36 @@ const validResume = {
 describe("resume builder validation", () => {
   it("accepts complete profile and education details", () => {
     expect(resumeBuilderSchema.safeParse(validResume).success).toBe(true);
+  });
+
+  describe("interview start validation", () => {
+    const setup = {
+      role: "Frontend Developer",
+      experience: "Intermediate",
+      interviewType: "Technical Interview",
+    };
+
+    it("allows technologies to be omitted so the interview can ask for them", () => {
+      expect(interviewStartSchema.parse(setup).technologies).toBe("");
+    });
+
+    it("accepts a candidate's technology list", () => {
+      expect(
+        interviewStartSchema.safeParse({
+          ...setup,
+          technologies: "HTML, CSS, Bootstrap, React",
+        }).success,
+      ).toBe(true);
+    });
+
+    it("rejects technology lists longer than 500 characters", () => {
+      expect(
+        interviewStartSchema.safeParse({
+          ...setup,
+          technologies: "a".repeat(501),
+        }).success,
+      ).toBe(false);
+    });
   });
 
   it("rejects missing required details and invalid email addresses", () => {

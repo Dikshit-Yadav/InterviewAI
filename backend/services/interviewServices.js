@@ -29,17 +29,33 @@ export const assertInterviewOwner = async (userId, interviewId) => {
     return session;
 };
 
-export const createInterviewSession = async (userId, role, experience, interviewType) => {
+export const createInterviewSession = async (
+    userId,
+    role,
+    experience,
+    interviewType,
+    technologyScope = ""
+) => {
     if (!role || !experience || !interviewType) {
         throw new Error("All fields required");
     }
 
-    const questions = await generateQuestions(role, experience, interviewType);
+    const normalizedTechnologyScope = technologyScope.trim()
+        ? normalizeTechnologyScope(technologyScope)
+        : "";
+    const questions = await generateQuestions(
+        role,
+        experience,
+        interviewType,
+        normalizedTechnologyScope
+    );
     const session = await InterviewSession.create({
         userId,
         role,
         experience,
         interviewType,
+        technologyScope: normalizedTechnologyScope,
+        requiresTechnologyScope: !normalizedTechnologyScope,
     });
 
     try {
@@ -48,6 +64,8 @@ export const createInterviewSession = async (userId, role, experience, interview
                 interviewId: session._id,
                 questionText,
                 order: index + 1,
+                isTechnologyClarification:
+                    !normalizedTechnologyScope && index === 1,
             }))
         );
     } catch (error) {
@@ -59,6 +77,140 @@ export const createInterviewSession = async (userId, role, experience, interview
     }
 
     return session;
+};
+
+const normalizeTechnologyScope = (technologies) => {
+    const items = technologies
+        .split(/[,\n;]+/)
+        .map((technology) => technology.trim())
+        .filter(Boolean);
+
+    if (!items.length || items.length > 20) {
+        throw httpError(400, "List between 1 and 20 technologies");
+    }
+    if (items.some((technology) => technology.length > 50)) {
+        throw httpError(400, "Each technology must be 50 characters or fewer");
+    }
+    if (
+        items.some(
+            (technology) =>
+                !/^[\p{L}\p{N}][\p{L}\p{N} .+#/-]*$/u.test(technology)
+        )
+    ) {
+        throw httpError(
+            400,
+            "Enter technology names separated by commas, semicolons, or new lines"
+        );
+    }
+
+    return [...new Set(items)].join(", ");
+};
+
+export const resolveInterviewTechnologyScope = async (
+    userId,
+    interviewId,
+    questionId,
+    technologies
+) => {
+    const session = await assertInterviewOwner(userId, interviewId);
+    if (session.status !== "started") {
+        throw httpError(400, "This interview has already been completed");
+    }
+
+    if (!session.requiresTechnologyScope && session.technologyScope) {
+        return fetchInterviewQuestions(interviewId);
+    }
+
+    const clarification = await Question.findOne({
+        _id: questionId,
+        interviewId,
+    });
+    if (!clarification) {
+        throw httpError(404, "Technology question not found for this interview");
+    }
+    if (!session.requiresTechnologyScope) {
+        throw httpError(404, "Technology question not found for this interview");
+    }
+    if (!clarification.isTechnologyClarification) {
+        throw httpError(404, "Technology question not found for this interview");
+    }
+
+    const technologyScope = normalizeTechnologyScope(technologies);
+    const reserved = await InterviewSession.findOneAndUpdate(
+        {
+            _id: session._id,
+            status: "started",
+            requiresTechnologyScope: true,
+            technologyScopeGenerating: { $ne: true },
+        },
+        { $set: { technologyScopeGenerating: true } },
+        { new: true }
+    );
+
+    if (!reserved) {
+        const latestSession = await InterviewSession.findById(session._id);
+        if (latestSession && !latestSession.requiresTechnologyScope) {
+            return fetchInterviewQuestions(interviewId);
+        }
+        throw httpError(409, "Technology-scoped questions are already being prepared");
+    }
+
+    try {
+        const generatedQuestions = await generateQuestions(
+            session.role,
+            session.experience,
+            session.interviewType,
+            technologyScope
+        );
+        if (generatedQuestions.length !== 8) {
+            throw new Error("AI did not return the expected scoped interview questions");
+        }
+
+        await Question.insertMany(
+            generatedQuestions.slice(1).map((questionText, index) => ({
+                interviewId,
+                questionText,
+                order: index + 2,
+            }))
+        );
+        const removedClarification = await Question.deleteOne({
+            _id: clarification._id,
+            interviewId,
+        });
+        if (removedClarification.deletedCount !== 1) {
+            throw new Error("Could not replace the technology clarification question");
+        }
+        await InterviewSession.updateOne(
+            { _id: session._id, technologyScopeGenerating: true },
+            {
+                $set: {
+                    technologyScope,
+                    requiresTechnologyScope: false,
+                    technologyScopeGenerating: false,
+                },
+            }
+        );
+
+    } catch (error) {
+        try {
+            await Question.deleteMany({ interviewId, order: { $gt: 1 } });
+            await Question.create({
+                _id: clarification._id,
+                interviewId,
+                questionText: clarification.questionText,
+                order: clarification.order,
+                isTechnologyClarification: true,
+            });
+        } finally {
+            await InterviewSession.updateOne(
+                { _id: session._id },
+                { $set: { technologyScopeGenerating: false } }
+            );
+        }
+        throw error;
+    }
+
+    return fetchInterviewQuestions(interviewId);
 };
 
 export const createResumeInterviewSession = async (
@@ -137,6 +289,7 @@ export const createFollowUpQuestion = async (userId, interviewId, questionId, an
                 role: session.role,
                 experience: session.experience,
                 interviewType: session.interviewType,
+                technologyScope: session.technologyScope,
             },
             question.questionText,
             answer.trim()
@@ -253,6 +406,9 @@ export const submitInterviewService = async (userId, interviewId, answers) => {
     // double-click / retry after success: just return the finished report
     if (session.status === "completed") {
         return generateReportService(interviewId);
+    }
+    if (session.requiresTechnologyScope) {
+        throw httpError(400, "Answer the technology question before finishing the interview");
     }
 
     const questions = await Question.find({ interviewId }).sort({ order: 1 });

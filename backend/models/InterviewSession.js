@@ -23,6 +23,21 @@ const interviewSessionSchema = new mongoose.Schema(
       required: true,
     },
 
+    technologyScope: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: "",
+    },
+    requiresTechnologyScope: {
+      type: Boolean,
+      default: false,
+    },
+    technologyScopeGenerating: {
+      type: Boolean,
+      default: false,
+    },
+
     status: {
       type: String,
       enum: ["started", "completed"],

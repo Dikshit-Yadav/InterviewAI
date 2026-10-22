@@ -1,6 +1,7 @@
 import {
   createInterviewSession,
   createResumeInterviewSession,
+  resolveInterviewTechnologyScope,
   createFollowUpQuestion,
   fetchInterviewQuestions,
   generateReportService,
@@ -29,13 +30,14 @@ const resumeAiErrorResponse = (error) => {
 
 export const startInterview = async (req, res) => {
   try {
-    const { role, experience, interviewType } = req.body;
+    const { role, technologies = "", experience, interviewType } = req.body;
 
     const session = await createInterviewSession(
       req.user.id,
       role,
       experience,
-      interviewType
+      interviewType,
+      technologies
     );
 
     res.status(200).json({
@@ -61,6 +63,28 @@ export const startInterview = async (req, res) => {
         : error.message,
     });
 
+  }
+};
+
+export const resolveTechnologies = async (req, res) => {
+  try {
+    const questions = await resolveInterviewTechnologyScope(
+      req.user.id,
+      req.params.id,
+      req.body.questionId,
+      req.body.technologies
+    );
+    return res.status(200).json(questions);
+  } catch (error) {
+    if (error.isHttpError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    logger.error({ err: error, requestId: req.id }, "Could not prepare scoped interview questions");
+    return res.status(error.status || 502).json({
+      message: error.isAiError
+        ? "The AI service could not generate technology-scoped questions. Please try again."
+        : "Could not prepare technology-scoped questions. Please try again.",
+    });
   }
 };
 

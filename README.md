@@ -10,6 +10,9 @@ from resume content, and build a downloadable resume.
   password reset.
 - Authenticated dashboard with interview history, progress, and reports.
 - Configurable mock interviews by role, experience level, and interview type.
+- Candidate-scoped interview questions based only on listed technologies; if
+  none are listed, the interview first asks which technologies the candidate
+  works with.
 - AI-generated interview questions, answer-dependent follow-ups, and feedback
   reports.
 - Resume review with ATS-oriented recommendations and practice questions.

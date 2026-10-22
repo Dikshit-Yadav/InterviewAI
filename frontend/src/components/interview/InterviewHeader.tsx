@@ -6,8 +6,7 @@ export default function InterviewHeader() {
       </h1>
       <p className="text-gray-400 mt-2">
         Choose your role, experience, and interview type. Each interview starts
-        with a brief introduction and includes 8 planned questions, with up to 2
-        answer-based follow-ups.
+        with a brief introduction and     answer-based follow-ups.
       </p>
     </div>
   )

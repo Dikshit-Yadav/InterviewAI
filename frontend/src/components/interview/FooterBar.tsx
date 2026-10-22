@@ -7,12 +7,14 @@ import { interviewStartSchema } from "@/lib/validation"
 
 type Props = {
   role: string | null
+  technologies: string
   experience: string | null
   interviewType: string | null
 }
 
 export default function FooterBar({
   role,
+  technologies,
   experience,
   interviewType,
 }: Props) {
@@ -24,6 +26,7 @@ export default function FooterBar({
     if (loading) return
     const validation = interviewStartSchema.safeParse({
       role,
+      technologies,
       experience,
       interviewType,
     })
@@ -57,6 +60,13 @@ export default function FooterBar({
             {role || "Not selected"}
           </span>
         </p>
+
+        {technologies.trim() && (
+          <p>
+            Technologies:{" "}
+            <span className="text-white">{technologies.trim()}</span>
+          </p>
+        )}
 
         <p>
           Experience:{" "}

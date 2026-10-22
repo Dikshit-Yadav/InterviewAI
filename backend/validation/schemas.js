@@ -53,6 +53,12 @@ export const profileBodySchema = z.object({
 
 export const interviewStartBodySchema = z.object({
   role: roleSchema,
+  technologies: z
+    .string()
+    .trim()
+    .max(500, "Technologies cannot exceed 500 characters")
+    .optional()
+    .default(""),
   experience: z.enum(["Beginner", "Intermediate", "Advanced"], {
     error: "Choose a valid experience level",
   }),
@@ -101,6 +107,14 @@ export const interviewFollowUpBodySchema = z.object({
   answer: z.string().trim().min(1, "Answer the question before continuing").max(
     10_000,
     "An answer cannot exceed 10,000 characters"
+  ),
+});
+
+export const interviewTechnologiesBodySchema = z.object({
+  questionId: interviewIdSchema,
+  technologies: z.string().trim().min(1, "List at least one technology").max(
+    500,
+    "Technologies cannot exceed 500 characters"
   ),
 });
 

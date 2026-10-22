@@ -17,6 +17,7 @@ type Question = {
   questionText: string;
   order: number;
   followUpToQuestionId?: string;
+  isTechnologyClarification?: boolean;
 };
 
 // answers are kept in state (and mirrored to localStorage so a refresh
@@ -108,6 +109,10 @@ export default function SessionPage() {
 
   const handleFinish = async () => {
     if (!interviewId || !currentQuestion || submitting) return;
+    if (questions.some((question) => question.isTechnologyClarification)) {
+      setError("List the technologies you work with before finishing the interview.");
+      return;
+    }
     const introduction = questions.find((question) => question.order === 1);
     if (!answers[introduction?._id ?? ""]?.trim()) {
       setError("A brief introduction is required before you finish.");
@@ -151,7 +156,10 @@ export default function SessionPage() {
 
   const handleNext = async () => {
     if (!interviewId || !currentQuestion || submitting) return;
-    if (currentIndex === questions.length - 1) {
+    if (
+      currentIndex === questions.length - 1 &&
+      !currentQuestion.isTechnologyClarification
+    ) {
       await handleFinish();
       return;
     }
@@ -160,10 +168,34 @@ export default function SessionPage() {
       setError("A brief introduction is required before you continue.");
       return;
     }
+    if (currentQuestion.isTechnologyClarification && !answer) {
+      setError("List the technologies you work with before continuing.");
+      return;
+    }
+    if (currentQuestion.isTechnologyClarification && answer.length > 500) {
+      setError("Your technology list cannot exceed 500 characters.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
     try {
+      if (currentQuestion.isTechnologyClarification) {
+        const scopedQuestions = await interviewService.resolveTechnologies(
+          interviewId,
+          currentQuestion._id,
+          answer
+        );
+        setQuestions(scopedQuestions);
+        setAnswers((previous) => {
+          const next = { ...previous };
+          delete next[currentQuestion._id];
+          return next;
+        });
+        setCurrentIndex(1);
+        return;
+      }
+
       if (
         answer.length >= 30 &&
         currentQuestion.order !== 1 &&
@@ -251,6 +283,8 @@ export default function SessionPage() {
               ? "Follow-up"
               : currentQuestion.order === 1
                 ? "Introduction"
+                : currentQuestion.isTechnologyClarification
+                  ? "Technology selection"
                 : "Interview question"
           }
           difficulty="Based on your level"
@@ -266,6 +300,13 @@ export default function SessionPage() {
         {currentQuestion.order === 1 && (
           <p className="text-sm text-secondary">
             A brief introduction is required to continue.
+          </p>
+        )}
+        {currentQuestion.isTechnologyClarification && (
+          <p className="text-sm text-secondary">
+            List the technologies you work with, separated by commas. The
+            remaining questions will focus only on those technologies (up to
+            500 characters).
           </p>
         )}
         {error && <p className="text-sm text-error">{error}</p>}

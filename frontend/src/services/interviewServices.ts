@@ -58,6 +58,24 @@ export const interviewService = {
             followUp: { _id: string; questionText: string; order: number } | null;
         };
     },
+    resolveTechnologies: async (
+        interviewId: string,
+        questionId: string,
+        technologies: string
+    ) => {
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const response = await API.post(
+            `/interview/technologies/${validatedId}`,
+            { questionId, technologies }
+        );
+        return response.data as {
+            _id: string;
+            questionText: string;
+            order: number;
+            followUpToQuestionId?: string;
+            isTechnologyClarification?: boolean;
+        }[];
+    },
 
     // sends ALL answers at once; backend evaluates them with AI and returns the report
     submitInterview: async (

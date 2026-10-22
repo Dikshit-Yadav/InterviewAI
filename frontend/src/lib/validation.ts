@@ -135,6 +135,12 @@ export type ResumeBuilderData = z.infer<typeof resumeBuilderSchema>;
 
 export const interviewStartSchema = z.object({
   role: z.string().trim().min(1, "Choose a target role").max(100),
+  technologies: z
+    .string()
+    .trim()
+    .max(500, "List up to 500 characters of technologies")
+    .optional()
+    .default(""),
   experience: z.enum(["Beginner", "Intermediate", "Advanced"], {
     error: "Choose a valid experience level",
   }),
