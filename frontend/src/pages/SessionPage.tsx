@@ -334,7 +334,7 @@ export default function SessionPage() {
         getErrorMessage(
           err,
           "Could not continue the interview. Your answer is saved; please try again.",
-        ),,
+        ),
       );
     } finally {
       setSubmitting(false);
