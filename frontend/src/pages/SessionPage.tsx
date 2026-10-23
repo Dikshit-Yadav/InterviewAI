@@ -498,7 +498,7 @@ export default function SessionPage() {
 
                 <p
                   id="finish-confirm-description"
-                  className="text-sm leading-6 text-secondary"
+                  className="text-sm leading-6 text-100"
                 >
                   {unansweredCount > 0
                     ? `${unansweredCount} ${
