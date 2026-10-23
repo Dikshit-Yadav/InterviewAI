@@ -8,8 +8,20 @@ const emailSchema = z
 const passwordSchema = z
   .string()
   .max(128, "Password is too long")
-  .refine((value) => value.trim().length >= 8, {
+  .refine((value) => value.length >= 8, {
     message: "Password must be at least 8 characters",
+  })
+  .refine((value) => /[A-Z]/.test(value), {
+    message: "Password must contain at least one uppercase letter",
+  })
+  .refine((value) => /[a-z]/.test(value), {
+    message: "Password must contain at least one lowercase letter",
+  })
+  .refine((value) => /\d/.test(value), {
+    message: "Password must contain at least one digit",
+  })
+  .refine((value) => /[^A-Za-z0-9\s]/.test(value), {
+    message: "Password must contain at least one special character",
   });
 
 export const emailOnlySchema = z.object({ email: emailSchema });
@@ -39,15 +51,21 @@ export const loginSchema = z
 
     if (!password) {
       ctx.addIssue({ code: "custom", message: "Password is required" });
-    } else if (password.trim().length < 8) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Password must be at least 8 characters",
-      });
+    } else {
+      const passwordValidation = passwordSchema.safeParse(password);
+      if (!passwordValidation.success) {
+        ctx.addIssue({
+          code: "custom",
+          message: passwordValidation.error.issues[0].message,
+        });
+      }
     }
 
     if (!email) {
-      ctx.addIssue({ code: "custom", message: "Email is required" });
+      ctx.addIssue({
+        code: "custom",
+        message: "Email is required",
+      });
     } else if (!emailSchema.safeParse(email).success) {
       ctx.addIssue({ code: "custom", message: "Please enter a valid email" });
     }

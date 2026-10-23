@@ -9,8 +9,20 @@ const passwordSchema = z
   .string()
   .min(1, "Password is required")
   .max(128, "Password is too long")
-  .refine((value) => value.trim().length >= 8, {
+  .refine((value) => value.length >= 8, {
     message: "Password must be at least 8 characters",
+  })
+  .refine((value) => /[A-Z]/.test(value), {
+    message: "Password must contain at least one uppercase letter",
+  })
+  .refine((value) => /[a-z]/.test(value), {
+    message: "Password must contain at least one lowercase letter",
+  })
+  .refine((value) => /\d/.test(value), {
+    message: "Password must contain at least one digit",
+  })
+  .refine((value) => /[^A-Za-z0-9\s]/.test(value), {
+    message: "Password must contain at least one special character",
   });
 const roleSchema = z
   .string()

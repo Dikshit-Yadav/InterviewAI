@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService";
 import { toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
+import { loginSchema } from "@/lib/validation";
 
 import { useEffect, useState } from "react";
 
@@ -77,41 +78,16 @@ export default function LoginForm() {
   };
 
   const submit = async () => {
-    if (!email && !password) {
-      toast.error("All fields are required");
-      return;
-    }
-
-    if (!password) {
-      toast.error("Password is required");
-      return;
-    }
-    if (!email) {
-      toast.error("Email is required");
-      return;
-    }
-    const passwordRegex =
-      /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]).{8,}$/;
-
-    if (!passwordRegex.test(password.trim())) {
-      toast.error(
-        "Password must be at least 8 characters, with one uppercase letter, one digit, and one special character",
-      );
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email");
+    const validation = loginSchema.safeParse({ email, password });
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
       return;
     }
     if (loading) return;
     setLoading(true);
 
     try {
-      const data = { email, password };
-      await AuthService.login(data);
+      await AuthService.login(validation.data);
 
       toast.success("Login successful!");
       navigate("/dashboard");
@@ -185,6 +161,9 @@ export default function LoginForm() {
                   autoComplete="new-password"
                   className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Use at least 8 characters, including uppercase and lowercase letters, a number, and a special character.
+                </p>
               </div>
               <Button
                 className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover"
@@ -238,6 +217,9 @@ export default function LoginForm() {
               placeholder="••••••••"
               className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
             />
+            <p className="mt-2 text-xs text-gray-500">
+              Use at least 8 characters, including uppercase and lowercase letters, a number, and a special character.
+            </p>
           </div>
           <button
             type="button"

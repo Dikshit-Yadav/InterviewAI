@@ -184,6 +184,9 @@ export default function RegisterForm() {
           placeholder="••••••••"
           className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
         />
+        <p className="mt-2 text-xs text-gray-500">
+          Use at least 8 characters, including uppercase and lowercase letters, a number, and a special character.
+        </p>
       </div>
 
       {/* target role */}

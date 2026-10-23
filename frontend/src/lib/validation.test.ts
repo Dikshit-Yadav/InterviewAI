@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { interviewStartSchema, resumeBuilderSchema } from "./validation";
+import {
+  interviewStartSchema,
+  loginSchema,
+  registerSchema,
+  resumeBuilderSchema,
+} from "./validation";
 
 const validResume = {
   name: "Ada Example",
@@ -60,6 +65,50 @@ describe("resume builder validation", () => {
         interviewStartSchema.safeParse({
           ...setup,
           technologies: "a".repeat(501),
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe("password validation", () => {
+    const registration = {
+      name: "Ada Example",
+      email: "ada@example.com",
+      targetRole: "Frontend Developer",
+    };
+
+    it("accepts passwords with all required character types and minimum length", () => {
+      expect(
+        registerSchema.safeParse({
+          ...registration,
+          password: "Secure1!x",
+        }).success,
+      ).toBe(true);
+    });
+
+    it.each([
+      ["short", "Aa1!abc"],
+      ["no uppercase", "secure1!x"],
+      ["no lowercase", "SECURE1!X"],
+      ["no number", "Secure!xx"],
+      ["no special character", "Secure12x"],
+    ])("rejects a password that is %s", (_reason, password) => {
+      const result = registerSchema.safeParse({ ...registration, password });
+
+      expect(result.success).toBe(false);
+    });
+
+    it("applies the same password policy at login", () => {
+      expect(
+        loginSchema.safeParse({
+          email: "ada@example.com",
+          password: "Secure1!x",
+        }).success,
+      ).toBe(true);
+      expect(
+        loginSchema.safeParse({
+          email: "ada@example.com",
+          password: "secure1!x",
         }).success,
       ).toBe(false);
     });
