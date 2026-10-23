@@ -2,6 +2,42 @@ import { Textarea } from "@/components/ui/textarea"
 import { Mic } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 
+type SpeechRecognitionAlternativeLike = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  0: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionResultsLike = {
+  length: number;
+  [index: number]: SpeechRecognitionResultLike;
+};
+
+type SpeechRecognitionResultEventLike = {
+  resultIndex: number;
+  results: SpeechRecognitionResultsLike;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
 type Props = {
   value: string
   onChange: (val: string) => void
@@ -10,7 +46,7 @@ type Props = {
 export default function AnswerBox({ value, onChange }: Props) {
   const [listening, setListening] = useState(false)
 
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const finalTextRef = useRef("")
 
   // stop the mic when this box unmounts (next/previous question, leaving page)
@@ -19,9 +55,9 @@ export default function AnswerBox({ value, onChange }: Props) {
   }, [])
 
   const handleVoice = () => {
+    const speechWindow = window as SpeechRecognitionWindow;
     const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
 
     if (!SpeechRecognition) {
       alert("Speech Recognition not supported in this browser")
@@ -40,7 +76,7 @@ export default function AnswerBox({ value, onChange }: Props) {
 
     recognition.start()
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event) => {
       let interim = ""
 
       for (let i = event.resultIndex; i < event.results.length; i++) {

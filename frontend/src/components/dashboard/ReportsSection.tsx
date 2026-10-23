@@ -1,5 +1,7 @@
+import type { DashboardReportSummary } from "@/types/api";
+
 type Props = {
-  reports: any[];
+  reports: DashboardReportSummary[];
 };
 
 export default function ReportsSection({ reports }: Props) {

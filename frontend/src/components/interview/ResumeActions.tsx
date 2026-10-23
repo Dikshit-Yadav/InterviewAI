@@ -7,6 +7,7 @@ import {
   interviewService,
   type ResumeReview,
 } from "@/services/interviewServices";
+import { getErrorMessage } from "@/lib/apiError";
 
 type Action = "start" | "review";
 
@@ -44,11 +45,8 @@ export default function ResumeActions() {
       const result = await interviewService.reviewResume(file);
       setReview(result);
       toast.success("Resume review is ready.");
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Could not process the resume. Please try again.",
-      );
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Could not process the resume. Please try again."));
     } finally {
       setBusy(null);
       setAction(null);

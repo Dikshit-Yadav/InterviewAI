@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { getDashboard } from "@/services/dashboardService";
+import type { DashboardData } from "@/types/api";
 
 export default function ProfileStats() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
     getDashboard().then(setData);
