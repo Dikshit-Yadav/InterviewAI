@@ -5,6 +5,7 @@ import { AuthService } from "@/services/authService"
 import {toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
 import { emailOnlySchema, registerSchema } from "@/lib/validation";
+import { getErrorMessage } from "@/lib/apiError";
 
 import { useState } from "react";
 
@@ -37,8 +38,8 @@ export default function RegisterForm() {
       setVerifiedEmail("");
       setOtp("");
       toast.success("Verification code sent to your email.");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not send verification code.");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Could not send verification code."));
     } finally {
       setSendingCode(false);
     }
@@ -51,8 +52,8 @@ export default function RegisterForm() {
       await AuthService.verifyRegistrationCode(email, otp);
       setVerifiedEmail(email.trim().toLowerCase());
       toast.success("Email verified.");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not verify the code.");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Could not verify the code."));
     } finally {
       setVerifyingCode(false);
     }
@@ -82,9 +83,9 @@ export default function RegisterForm() {
       toast.success("Registration successful!");
       navigate("/login");
 
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Something went wrong. Please try again.");
-      console.log(err);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Something went wrong. Please try again."));
+      console.error("Registration failed", err);
     } finally {
       setLoading(false);
     }

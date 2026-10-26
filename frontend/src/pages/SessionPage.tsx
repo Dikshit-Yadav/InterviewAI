@@ -12,6 +12,7 @@ import { interviewService } from "@/services/interviewServices";
 import { answerDraftSchema } from "@/lib/validation";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import PageSkeleton from "@/components/ui/PageSkeleton";
+import { getErrorMessage } from "@/lib/apiError";
 
 type Question = {
   _id: string;
@@ -239,12 +240,14 @@ export default function SessionPage() {
       setSubmitted(true);
       localStorage.removeItem(draftKey(interviewId));
       navigate(`/report/${interviewId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Could not finish interview", err);
 
       setError(
-        err?.response?.data?.message ||
+        getErrorMessage(
+          err,
           "Could not finish the interview. Your answers are saved; please try again.",
+        ),
       );
     } finally {
       setSubmitting(false);
@@ -325,11 +328,13 @@ export default function SessionPage() {
       if (currentIndex < questions.length - 1) {
         setCurrentIndex((index) => index + 1);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Could not continue interview", err);
       setError(
-        err?.response?.data?.message ||
+        getErrorMessage(
+          err,
           "Could not continue the interview. Your answer is saved; please try again.",
+        ),
       );
     } finally {
       setSubmitting(false);

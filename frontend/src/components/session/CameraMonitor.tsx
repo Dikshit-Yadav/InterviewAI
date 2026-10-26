@@ -83,6 +83,7 @@ export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
     let cancelled = false;
     let detectionTimer: ReturnType<typeof setInterval> | undefined;
     let detectionInProgress = false;
+    const video = videoRef.current;
 
     const publishStatus = (nextStatus: MonitorStatus, message?: string) => {
       if (cancelled) return;
@@ -135,7 +136,6 @@ export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
 
         streamRef.current = stream;
 
-        const video = videoRef.current;
         if (!video) {
           throw new Error("Camera preview could not be initialized.");
         }
@@ -292,9 +292,9 @@ export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
 
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
+      if (video) {
+        video.pause();
+        video.srcObject = null;
       }
     };
   }, []);

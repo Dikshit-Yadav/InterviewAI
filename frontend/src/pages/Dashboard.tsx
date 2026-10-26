@@ -11,10 +11,11 @@ import PageSkeleton from "@/components/ui/PageSkeleton";
 // import Skills from "@/components/dashboard/Skills";
 import { getDashboard } from "@/services/dashboardService";
 import { interviewService } from "@/services/interviewServices";
+import type { DashboardData, InterviewHistoryItem } from "@/types/api";
 
 export default function Dashboard() {
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [history, setHistory] = useState<InterviewHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

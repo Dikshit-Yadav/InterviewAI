@@ -4,7 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService";
 import { toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
+<<<<<<< HEAD
 import { loginSchema } from "@/lib/validation";
+=======
+import { getErrorMessage } from "@/lib/apiError";
+>>>>>>> 2a36433ff299af6880519d1c8d2fe72f8dc3ca00
 
 import { useEffect, useState } from "react";
 
@@ -44,10 +48,8 @@ export default function LoginForm() {
       const result = await AuthService.requestPasswordReset(email);
       setResetCodeSent(true);
       toast.info(result.message);
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Could not request a reset code.",
-      );
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Could not request a reset code."));
     } finally {
       setLoading(false);
     }
@@ -68,10 +70,8 @@ export default function LoginForm() {
       setResetCode("");
       setNewPassword("");
       setPassword("");
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Could not reset your password.",
-      );
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Could not reset your password."));
     } finally {
       setLoading(false);
     }
@@ -91,12 +91,9 @@ export default function LoginForm() {
 
       toast.success("Login successful!");
       navigate("/dashboard");
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message ||
-          "Something went wrong. Please try again.",
-      );
-      console.log(err);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Something went wrong. Please try again."));
+      console.error("Login failed", err);
     } finally {
       setLoading(false);
     }
