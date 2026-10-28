@@ -358,14 +358,14 @@ export default function SessionPage() {
   return (
     <div
       ref={interviewContainerRef}
-      className="min-h-screen bg-background text-foreground px-6 py-10"
+      className="min-h-screen w-full overflow-x-hidden bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10"
       onCopy={preventClipboardAction}
       onCut={preventClipboardAction}
       onPaste={preventClipboardAction}
       onContextMenu={(event) => event.preventDefault()}
       onKeyDown={preventClipboardShortcuts}
     >
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
         <div className="flex justify-end">
           <ThemeToggle />
         </div>

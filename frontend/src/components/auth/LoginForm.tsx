@@ -4,11 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/authService";
 import { toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
-<<<<<<< HEAD
 import { loginSchema } from "@/lib/validation";
-=======
 import { getErrorMessage } from "@/lib/apiError";
->>>>>>> 2a36433ff299af6880519d1c8d2fe72f8dc3ca00
 
 import { useEffect, useState } from "react";
 

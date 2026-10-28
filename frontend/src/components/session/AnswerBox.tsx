@@ -1,6 +1,6 @@
 import { Textarea } from "@/components/ui/textarea"
 import { Mic } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
 
 type SpeechRecognitionAlternativeLike = {
   transcript: string;
@@ -47,7 +47,16 @@ export default function AnswerBox({ value, onChange }: Props) {
   const [listening, setListening] = useState(false)
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const finalTextRef = useRef("")
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    textarea.style.height = "0px"
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }, [value])
 
   // stop the mic when this box unmounts (next/previous question, leaving page)
   useEffect(() => {
@@ -128,11 +137,12 @@ export default function AnswerBox({ value, onChange }: Props) {
       )}
 
       <Textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={10_000}
         placeholder="Type or speak your answer..."
-        className="min-h-[200px] bg-transparent border-none focus-visible:ring-0 text-text-primary placeholder:text-text-muted pr-10"
+        className="field-sizing-fixed min-h-[160px] resize-none overflow-hidden bg-transparent border-none focus-visible:ring-0 text-text-primary placeholder:text-text-muted pr-10 sm:min-h-[200px]"
       />
     </div>
   )

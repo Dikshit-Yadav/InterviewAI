@@ -18,24 +18,24 @@ export default function NavigationControls({
   submitting,
 }: Props) {
   return (
-    <div className="flex justify-between items-center">
+    <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
       <Button
         variant="outline"
         onClick={() => onPrev()}
         disabled={disablePrev || submitting}
-        className="border-gray-700"
+        className="w-full border-gray-700 sm:w-auto"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Previous
       </Button>
 
-      <div className="flex flex-wrap justify-end gap-3">
+      <div className="grid gap-3 sm:flex sm:flex-wrap sm:justify-end">
         {!isLast && (
           <Button
             variant="outline"
             onClick={() => onFinish()}
             disabled={submitting}
-            className="border-border"
+            className="w-full border-border sm:w-auto"
           >
             Finish early
           </Button>
@@ -43,7 +43,7 @@ export default function NavigationControls({
         <Button
           onClick={() => (isLast ? onFinish() : onNext())}
           loading={submitting}
-          className="bg-brand text-primary-foreground hover:bg-brand-hover"
+          className="w-full bg-brand text-primary-foreground hover:bg-brand-hover sm:w-auto"
         >
           {submitting ? "Evaluating..." : isLast ? "Finish & Get Report" : "Next"}
           {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}

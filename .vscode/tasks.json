@@ -15,6 +15,48 @@
 				"mammoth"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "Inspect git status",
+			"type": "shell",
+			"command": "git status --short",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Lint responsive session",
+			"type": "shell",
+			"command": "cd frontend; npm run lint",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Lint responsive session final",
+			"type": "shell",
+			"command": "cd frontend; npm run lint",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Build responsive session",
+			"type": "shell",
+			"command": "cd frontend; npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
 		}
 	]
 }

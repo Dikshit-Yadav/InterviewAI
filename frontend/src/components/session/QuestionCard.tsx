@@ -31,7 +31,7 @@ export default function QuestionCard({
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
+    <div className="min-w-0 space-y-4 rounded-xl border border-border bg-surface p-4 sm:p-6">
       <div className="flex gap-2">
         <Badge className="bg-surface-hover text-text-secondary border border-border">
           {category}
