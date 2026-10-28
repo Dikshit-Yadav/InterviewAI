@@ -15,6 +15,9 @@ from resume content, and build a downloadable resume.
   works with.
 - AI-generated interview questions, answer-dependent follow-ups, and feedback
   reports.
+- Shareable timed assessments with a test title, per-technology difficulty,
+  configurable question count and duration, unique questions per candidate, and
+  server-authoritative automatic submission.
 - Finish-early confirmation that explains unanswered questions receive a score
   of zero before the candidate submits the interview.
 - Resume review with ATS-oriented recommendations and practice questions.

@@ -140,6 +140,40 @@ Return valid JSON only: {"questions":["question 1","question 2","question 3","qu
   }
 };
 
+export const generateConfiguredQuestions = async ({
+  role,
+  interviewType,
+  technologies,
+  questionCount,
+  attemptSeed,
+}) => {
+  const plannedCount = questionCount - 1;
+  const technologyPlan = technologies
+    .map(({ name, level }) => `${name}: ${level}`)
+    .join("; ");
+  const prompt = `Create exactly ${plannedCount} interview questions for a ${interviewType} about ${role}.\nReturn a unique question set for attempt seed ${attemptSeed}; do not repeat common generic question wording.\nTechnology plan: ${technologyPlan}.\nThe first output question must not be an introduction; a separate introduction is added.\nUse each technology at least once. Assign difficulty independently: follow the exact level beside each technology. Never ask a question about a technology outside this plan.\nQuestions must be concise, unambiguous, progressive, and about real technical knowledge. Include followable scenarios only when useful. Avoid duplicate topics.\nReturn valid JSON only: {"questions":["question 1"]}`;
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: interviewModel,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.85,
+      ...lowReasoning(interviewModel),
+      max_completion_tokens: Math.min(4000, plannedCount * 240),
+    });
+    const text = response.choices[0]?.message?.content;
+    if (!text) throw new Error("Configured question generation returned no content");
+    return [introductionQuestion(role), ...parseInterviewQuestions(text, plannedCount)];
+  } catch (error) {
+    logger.error({ err: error, attemptSeed, providerStatus: error.status }, "Configured question generation failed");
+    throw Object.assign(new Error("The AI service could not generate the configured interview questions", { cause: error }), {
+      status: error.status === 429 ? 503 : 502,
+      isAiError: true,
+    });
+  }
+};
+
 export const generateAnswerFollowUp = async (
   { role, experience, interviewType, technologyScope = "" },
   question,
