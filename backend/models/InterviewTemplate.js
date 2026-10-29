@@ -8,6 +8,11 @@ const technologySchema = new mongoose.Schema(
       enum: ["Beginner", "Intermediate", "Advanced"],
       required: true,
     },
+    topics: {
+      type: [String],
+      required: true,
+      validate: [(topics) => topics.length > 0, "At least one topic is required"],
+    },
   },
   { _id: false }
 );

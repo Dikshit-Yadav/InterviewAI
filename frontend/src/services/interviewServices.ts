@@ -151,6 +151,7 @@ const sharedAttemptHeaders = (attemptId: string) => {
 export type TechnologyLevel = {
     name: string;
     level: "Beginner" | "Intermediate" | "Advanced";
+    topics: string[];
 };
 
 export type SharedInterviewCreate = {

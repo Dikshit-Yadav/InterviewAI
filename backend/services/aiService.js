@@ -149,9 +149,9 @@ export const generateConfiguredQuestions = async ({
 }) => {
   const plannedCount = questionCount - 1;
   const technologyPlan = technologies
-    .map(({ name, level }) => `${name}: ${level}`)
+    .map(({ name, level, topics }) => `${name}: ${level}; Topics: ${(topics || []).join(", ") || "general"}`)
     .join("; ");
-  const prompt = `Create exactly ${plannedCount} interview questions for a ${interviewType} about ${role}.\nReturn a unique question set for attempt seed ${attemptSeed}; do not repeat common generic question wording.\nTechnology plan: ${technologyPlan}.\nThe first output question must not be an introduction; a separate introduction is added.\nUse each technology at least once. Assign difficulty independently: follow the exact level beside each technology. Never ask a question about a technology outside this plan.\nQuestions must be concise, unambiguous, progressive, and about real technical knowledge. Include followable scenarios only when useful. Avoid duplicate topics.\nReturn valid JSON only: {"questions":["question 1"]}`;
+  const prompt = `Create exactly ${plannedCount} interview questions for a ${interviewType} about ${role}.\nReturn a unique question set for attempt seed ${attemptSeed}; do not repeat common generic question wording.\nTechnology plan: ${technologyPlan}.\nThe first output question must not be an introduction; a separate introduction is added.\nUse each technology at least once. Assign difficulty independently: follow the exact level beside each technology. Ask every question only about the configured topics; never ask a question about a technology or topic outside this plan.\nQuestions must be concise, unambiguous, progressive, and about real technical knowledge. Include followable scenarios only when useful. Avoid duplicate topics.\nReturn valid JSON only: {"questions":["question 1"]}`;
 
   try {
     const response = await groq.chat.completions.create({

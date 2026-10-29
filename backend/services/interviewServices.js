@@ -392,6 +392,9 @@ export const joinInterviewTemplate = async (shareToken, candidateName) => {
             .sort((a, b) => ["Beginner", "Intermediate", "Advanced"].indexOf(b) - ["Beginner", "Intermediate", "Advanced"].indexOf(a))[0],
         interviewType: template.interviewType,
         technologyScope: template.technologies.map((item) => item.name).join(", "),
+        topicScope: template.technologies
+            .map((item) => `${item.name}: ${(item.topics || []).join(", ")}`)
+            .join("; "),
         requiresTechnologyScope: false,
         attemptTokenHash: sha256(attemptToken),
         startedAt,

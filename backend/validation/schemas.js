@@ -144,6 +144,7 @@ export const sharedInterviewCreateBodySchema = z.object({
   technologies: z.array(z.object({
     name: z.string().trim().min(1).max(50),
     level: levelSchema,
+    topics: z.array(z.string().trim().min(1).max(100)).min(1).max(20),
   })).min(1).max(20).refine(
     (items) => new Set(items.map((item) => item.name.toLowerCase())).size === items.length,
     "Each technology must be listed only once"

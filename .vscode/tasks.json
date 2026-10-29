@@ -83,6 +83,28 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Validate shared interview",
+			"type": "shell",
+			"command": "cd frontend; npm run lint",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Build shared interview",
+			"type": "shell",
+			"command": "cd frontend; npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
 		}
 	]
 }

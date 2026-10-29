@@ -29,6 +29,12 @@ const interviewSessionSchema = new mongoose.Schema(
       maxlength: 500,
       default: "",
     },
+    topicScope: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+      default: "",
+    },
     requiresTechnologyScope: {
       type: Boolean,
       default: false,
