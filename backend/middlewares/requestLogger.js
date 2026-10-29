@@ -36,7 +36,7 @@ const requestLogger = pinoHttp({
         method: req.method,
         url,
         query: sanitizeQuery(req.query),
-        remoteAddress: req.socket?.remoteAddress,
+        remoteAddress: req.remoteAddress ?? req.socket?.remoteAddress,
         userAgent: req.headers["user-agent"],
       };
     },

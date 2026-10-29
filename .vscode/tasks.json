@@ -15,6 +15,96 @@
 				"mammoth"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "Backend shareable interview syntax checks",
+			"type": "shell",
+			"command": "cd backend && node --check app.js && node --check controllers/interviewController.js && node --check routes/interviewRoutes.js && node --check services/interviewServices.js && node --check services/aiService.js && node --check models/InterviewTemplate.js && node --check models/InterviewSession.js && node --check validation/schemas.js",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Backend shareable interview syntax checks (PowerShell)",
+			"type": "shell",
+			"command": "Set-Location backend; node --check app.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check controllers/interviewController.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check routes/interviewRoutes.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check services/interviewServices.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check services/aiService.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check models/InterviewTemplate.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check models/InterviewSession.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node --check validation/schemas.js",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Frontend shareable interview lint and build",
+			"type": "shell",
+			"command": "Set-Location frontend; npm run lint; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; npm run build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Validate share feature",
+			"type": "shell",
+			"command": "cd frontend && npm run lint && npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Lint frontend",
+			"type": "shell",
+			"command": "cd frontend; npm run lint",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Lint frontend again",
+			"type": "shell",
+			"command": "cd frontend; npm run lint",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Build frontend",
+			"type": "shell",
+			"command": "cd frontend; npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Validate shared interview",
+			"type": "shell",
+			"command": "cd frontend; npm run lint",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Build shared interview",
+			"type": "shell",
+			"command": "cd frontend; npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
 		}
 	]
 }

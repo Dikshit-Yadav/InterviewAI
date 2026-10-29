@@ -2,13 +2,16 @@ import InterviewSession from "../models/InterviewSession.js";
 import Answer from "../models/Answer.js";
 import Question from "../models/Question.js";
 import Report from "../models/Report.js";
+import InterviewTemplate from "../models/InterviewTemplate.js";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import {
     generateQuestions,
     generateResumeInterview,
     generateAnswerFollowUp,
     evaluateAllAnswers,
     generateFinalReportAI,
+    generateConfiguredQuestions,
 } from "./aiService.js";
 
 const httpError = (status, message) =>
@@ -336,6 +339,206 @@ export const createFollowUpQuestion = async (userId, interviewId, questionId, an
 export const fetchInterviewQuestions = async (interviewId) => {
     const questions = await Question.find({ interviewId }).sort({ order: 1 });
     return questions;
+};
+
+const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
+const randomToken = (bytes = 24) => crypto.randomBytes(bytes).toString("hex");
+
+export const createInterviewTemplate = async (ownerId, input) => {
+    const technologies = input.technologies;
+    const uniqueNames = new Set(technologies.map((item) => item.name.toLowerCase()));
+    if (uniqueNames.size !== technologies.length) {
+        throw httpError(400, "Each technology can only appear once");
+    }
+    if (input.questionCount < 2 || input.questionCount > 50) {
+        throw httpError(400, "Question count must be between 2 and 50");
+    }
+
+    return InterviewTemplate.create({
+        ownerId,
+        title: input.title,
+        role: input.role,
+        interviewType: input.interviewType,
+        technologies,
+        questionCount: input.questionCount,
+        durationMinutes: input.durationMinutes,
+        shareToken: randomToken(18),
+    });
+};
+
+export const listInterviewTemplates = (ownerId) =>
+    InterviewTemplate.find({ ownerId }).sort({ createdAt: -1 }).lean();
+
+export const getInterviewTemplateByToken = async (shareToken) => {
+    const template = await InterviewTemplate.findOne({ shareToken, status: "active" }).lean();
+    if (!template) throw httpError(404, "Interview link is inactive or invalid");
+    return template;
+};
+
+export const joinInterviewTemplate = async (shareToken, candidateName) => {
+    const template = await getInterviewTemplateByToken(shareToken);
+    const attemptToken = randomToken(32);
+    const attemptSeed = randomToken(24);
+    const startedAt = new Date();
+    const expiresAt = new Date(startedAt.getTime() + template.durationMinutes * 60 * 1000);
+
+    const attempt = await InterviewSession.create({
+        userId: template.ownerId,
+        templateId: template._id,
+        candidateName,
+        role: template.role,
+        experience: template.technologies
+            .map((item) => item.level)
+            .sort((a, b) => ["Beginner", "Intermediate", "Advanced"].indexOf(b) - ["Beginner", "Intermediate", "Advanced"].indexOf(a))[0],
+        interviewType: template.interviewType,
+        technologyScope: template.technologies.map((item) => item.name).join(", "),
+        topicScope: template.technologies
+            .map((item) => `${item.name}: ${(item.topics || []).join(", ")}`)
+            .join("; "),
+        requiresTechnologyScope: false,
+        attemptTokenHash: sha256(attemptToken),
+        startedAt,
+        expiresAt,
+        status: "started",
+    });
+
+    try {
+        const questions = await generateConfiguredQuestions({
+            role: template.role,
+            interviewType: template.interviewType,
+            technologies: template.technologies,
+            questionCount: template.questionCount,
+            attemptSeed,
+        });
+        await Question.insertMany(
+            questions.map((questionText, index) => ({
+                interviewId: attempt._id,
+                questionText,
+                order: index + 1,
+            }))
+        );
+    } catch (error) {
+        await Promise.all([
+            Question.deleteMany({ interviewId: attempt._id }),
+            InterviewSession.deleteOne({ _id: attempt._id }),
+        ]);
+        throw error;
+    }
+
+    return {
+        attemptId: attempt._id,
+        attemptToken,
+        title: template.title,
+        candidateName,
+        durationMinutes: template.durationMinutes,
+        startedAt,
+        expiresAt,
+        questionCount: template.questionCount,
+    };
+};
+
+export const assertSharedAttempt = async (attemptId, attemptToken) => {
+    if (!attemptToken) throw httpError(401, "Missing interview attempt authorization");
+    if (!mongoose.isValidObjectId(attemptId)) throw httpError(400, "Invalid interview attempt id");
+    const attempt = await InterviewSession.findOne({
+        _id: attemptId,
+        attemptTokenHash: sha256(attemptToken),
+        templateId: { $exists: true },
+    }).select("+attemptTokenHash");
+    if (!attempt) throw httpError(404, "Interview attempt not found");
+
+    if (attempt.status === "started" && attempt.expiresAt <= new Date()) {
+        attempt.status = "expired";
+        attempt.submittedAt = new Date();
+        await attempt.save();
+    }
+    return attempt;
+};
+
+export const fetchSharedInterviewQuestions = async (attemptId, attemptToken) => {
+    await assertSharedAttempt(attemptId, attemptToken);
+    return fetchInterviewQuestions(attemptId);
+};
+
+export const createSharedFollowUpQuestion = async (attemptId, attemptToken, questionId, answer) => {
+    const session = await assertSharedAttempt(attemptId, attemptToken);
+    if (session.status !== "started") throw httpError(400, "This interview is no longer active");
+
+    const question = await Question.findOne({ _id: questionId, interviewId: attemptId });
+    if (!question) throw httpError(404, "Question not found for this interview");
+    if (question.order === 1 || question.followUpToQuestionId || answer.trim().length < 30) return null;
+    if (await Question.findOne({ interviewId: attemptId, followUpToQuestionId: question._id })) return null;
+
+    const questionCount = await Question.countDocuments({ interviewId: attemptId });
+    const maxQuestions = await InterviewTemplate.findById(session.templateId).select("questionCount").lean();
+    if (questionCount >= (maxQuestions?.questionCount || 50) + 4) return null;
+
+    const reserved = await InterviewSession.findOneAndUpdate(
+        { _id: session._id, status: "started", followUpCount: { $lt: 4 } },
+        { $inc: { followUpCount: 1 } },
+        { new: true }
+    );
+    if (!reserved) return null;
+
+    try {
+        const followUpText = await generateAnswerFollowUp(
+            { role: session.role, experience: session.experience, interviewType: session.interviewType, technologyScope: session.technologyScope },
+            question.questionText,
+            answer.trim()
+        );
+        if (!followUpText) {
+            await InterviewSession.updateOne({ _id: session._id }, { $inc: { followUpCount: -1 } });
+            return null;
+        }
+        await Question.updateMany({ interviewId: attemptId, order: { $gt: question.order } }, { $inc: { order: 1 } });
+        return await Question.create({
+            interviewId: attemptId,
+            questionText: followUpText,
+            order: question.order + 1,
+            followUpToQuestionId: question._id,
+        });
+    } catch (error) {
+        await InterviewSession.updateOne({ _id: session._id, followUpCount: { $gt: 0 } }, { $inc: { followUpCount: -1 } });
+        throw error;
+    }
+};
+
+export const submitSharedInterviewService = async (attemptId, attemptToken, answers) => {
+    const session = await assertSharedAttempt(attemptId, attemptToken);
+    if (session.status !== "started") {
+        if (session.status === "completed") return generateReportService(attemptId);
+        throw httpError(409, "The interview time has ended");
+    }
+
+    const questions = await Question.find({ interviewId: attemptId }).sort({ order: 1 });
+    const answerByQuestion = new Map(answers.map((item) => [String(item.questionId), item.answer.trim()]));
+    const rows = questions.map((question) => ({ question, answer: answerByQuestion.get(String(question._id)) || "" }));
+    if (!rows[0]?.answer) throw httpError(400, "Please answer the required brief introduction");
+
+    const answered = rows.filter((row) => row.answer);
+    const evaluations = await evaluateAllAnswers(
+        { role: session.role, experience: session.experience, interviewType: session.interviewType },
+        answered.map((row) => ({ question: row.question.questionText, answer: row.answer }))
+    );
+    let index = 0;
+    const docs = rows.map((row) => {
+        const evaluation = row.answer ? evaluations[index++] : { score: 0, strengths: "", weaknesses: "No answer was provided.", correctAnswer: "" };
+        return {
+            questionId: row.question._id,
+            interviewId: attemptId,
+            userAnswer: row.answer || "(No answer provided)",
+            aiEvaluation: evaluation,
+            skill: row.answer ? evaluation.skill : undefined,
+        };
+    });
+    await Answer.deleteMany({ interviewId: attemptId });
+    await Report.deleteMany({ interviewId: attemptId });
+    await Answer.insertMany(docs);
+    const report = await generateReportService(attemptId);
+    session.status = "completed";
+    session.submittedAt = new Date();
+    await session.save();
+    return report;
 };
 
 

@@ -7,6 +7,13 @@ import {
   generateReportService,
   submitInterviewService,
   assertInterviewOwner,
+  createInterviewTemplate,
+  listInterviewTemplates,
+  getInterviewTemplateByToken,
+  joinInterviewTemplate,
+  fetchSharedInterviewQuestions,
+  createSharedFollowUpQuestion,
+  submitSharedInterviewService,
 } from "../services/interviewServices.js";
 import logger from "../utils/logger.js";
 import { extractResumeText } from "../services/resumeService.js";
@@ -198,6 +205,102 @@ export const generateReport = async (req, res) => {
     res.status(err.status || 400).json({ message: err.message });
   }
 };
+const attemptTokenFromRequest = (req) =>
+  req.get("x-interview-attempt-token") || req.cookies?.interview_attempt_token;
+
+export const createSharedInterview = async (req, res) => {
+  try {
+    const template = await createInterviewTemplate(req.user.id, req.body);
+    const configuredOrigin = process.env.CLIENT_URL?.replace(/\/$/, "") || "";
+    res.status(201).json({
+      id: template._id,
+      title: template.title,
+      shareToken: template.shareToken,
+      shareUrl: configuredOrigin ? `${configuredOrigin}/join/${template.shareToken}` : `/join/${template.shareToken}`,
+      questionCount: template.questionCount,
+      durationMinutes: template.durationMinutes,
+    });
+  } catch (error) {
+    res.status(error.status || 400).json({ message: error.message });
+  }
+};
+
+export const listSharedInterviews = async (req, res) => {
+  const templates = await listInterviewTemplates(req.user.id);
+  res.status(200).json(templates);
+};
+
+export const getSharedInterview = async (req, res) => {
+  try {
+    const template = await getInterviewTemplateByToken(req.params.token);
+    res.status(200).json({
+      title: template.title,
+      role: template.role,
+      interviewType: template.interviewType,
+      technologies: template.technologies,
+      questionCount: template.questionCount,
+      durationMinutes: template.durationMinutes,
+    });
+  } catch (error) {
+    res.status(error.status || 404).json({ message: error.message });
+  }
+};
+
+export const joinSharedInterview = async (req, res) => {
+  try {
+    const joined = await joinInterviewTemplate(req.params.token, req.body.candidateName);
+    res.cookie("interview_attempt_token", joined.attemptToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: joined.durationMinutes * 60 * 1000,
+    });
+    res.status(201).json(joined);
+  } catch (error) {
+    if ((error.status || 400) >= 500) {
+      logger.error({ err: error, requestId: req.id }, "Could not start shared interview");
+    }
+    res.status(error.status || 502).json({ message: error.message });
+  }
+};
+
+export const getSharedInterviewQuestions = async (req, res) => {
+  try {
+    const questions = await fetchSharedInterviewQuestions(req.params.id, attemptTokenFromRequest(req));
+    res.status(200).json(questions);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
+  }
+};
+
+export const getSharedAnswerFollowUp = async (req, res) => {
+  try {
+    const followUp = await createSharedFollowUpQuestion(
+      req.params.id,
+      attemptTokenFromRequest(req),
+      req.body.questionId,
+      req.body.answer
+    );
+    res.status(200).json({ followUp });
+  } catch (error) {
+    res.status(error.status || 502).json({ message: error.message });
+  }
+};
+
+export const submitSharedInterview = async (req, res) => {
+  try {
+    const report = await submitSharedInterviewService(
+      req.params.id,
+      attemptTokenFromRequest(req),
+      req.body.answers
+    );
+    res.clearCookie("interview_attempt_token");
+    res.status(200).json(report);
+  } catch (error) {
+    res.status(error.status || 400).json({ message: error.message });
+  }
+};
+
 export const submitInterview = async (req, res) => {
   try {
     const { id } = req.params;

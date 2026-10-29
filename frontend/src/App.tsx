@@ -8,6 +8,8 @@ import InterviewPage from "./pages/InterviewPage";
 import SessionPage from "./pages/SessionPage";
 import ReportPage from "./pages/ReportPage";
 import Profile from "./pages/Profile";
+import SharedInterviewBuilder from "./pages/SharedInterviewBuilder";
+import SharedInterviewJoin from "./pages/SharedInterviewJoin";
 
 
 
@@ -18,6 +20,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Register />} />
+      <Route path="/join/:token" element={<SharedInterviewJoin />} />
 
         <Route element={<ProtectRoutes />}>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -25,6 +28,7 @@ function App() {
           <Route path="/interview/:interviewId" element={<SessionPage />} />
           <Route path="/report/:id" element={<ReportPage />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/shared-interviews" element={<SharedInterviewBuilder />} />
         </Route>
         
       </Routes>

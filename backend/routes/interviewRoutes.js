@@ -8,6 +8,13 @@ import {
   resolveTechnologies,
   generateReport,
   submitInterview,
+  createSharedInterview,
+  listSharedInterviews,
+  getSharedInterview,
+  joinSharedInterview,
+  getSharedInterviewQuestions,
+  getSharedAnswerFollowUp,
+  submitSharedInterview,
 } from "../controllers/interviewController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import resumeUpload from "../middlewares/resumeUpload.js";
@@ -19,9 +26,46 @@ import {
   interviewTechnologiesBodySchema,
   resumeInterviewBodySchema,
   submitAnswersBodySchema,
+  sharedInterviewCreateBodySchema,
+  sharedInterviewJoinBodySchema,
+  sharedInterviewTokenSchema,
+  sharedInterviewAttemptParamsSchema,
 } from "../validation/schemas.js";
 
 const router = express.Router();
+
+router.post(
+  "/shared",
+  authMiddleware,
+  validateRequest({ body: sharedInterviewCreateBodySchema }),
+  createSharedInterview
+);
+router.get("/shared", authMiddleware, listSharedInterviews);
+router.get(
+  "/shared/:token",
+  validateRequest({ params: sharedInterviewTokenSchema }),
+  getSharedInterview
+);
+router.post(
+  "/shared/:token/join",
+  validateRequest({ params: sharedInterviewTokenSchema, body: sharedInterviewJoinBodySchema }),
+  joinSharedInterview
+);
+router.get(
+  "/shared-attempt/:id/questions",
+  validateRequest({ params: sharedInterviewAttemptParamsSchema }),
+  getSharedInterviewQuestions
+);
+router.post(
+  "/shared-attempt/:id/follow-up",
+  validateRequest({ params: sharedInterviewAttemptParamsSchema, body: interviewFollowUpBodySchema }),
+  getSharedAnswerFollowUp
+);
+router.post(
+  "/shared-attempt/:id/submit",
+  validateRequest({ params: sharedInterviewAttemptParamsSchema, body: submitAnswersBodySchema }),
+  submitSharedInterview
+);
 
 router.post(
   "/start",

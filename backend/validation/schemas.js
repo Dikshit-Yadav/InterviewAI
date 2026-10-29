@@ -130,6 +130,43 @@ export const interviewTechnologiesBodySchema = z.object({
   ),
 });
 
+const levelSchema = z.enum(["Beginner", "Intermediate", "Advanced"]);
+
+export const sharedInterviewCreateBodySchema = z.object({
+  title: z.string().trim().min(3).max(120),
+  role: roleSchema,
+  interviewType: z.enum([
+    "Technical Interview",
+    "HR Interview",
+    "System Design Interview",
+    "Behavioral Interview",
+  ]),
+  technologies: z.array(z.object({
+    name: z.string().trim().min(1).max(50),
+    level: levelSchema,
+    topics: z.array(z.string().trim().min(1).max(100)).min(1).max(20),
+  })).min(1).max(20).refine(
+    (items) => new Set(items.map((item) => item.name.toLowerCase())).size === items.length,
+    "Each technology must be listed only once"
+  ),
+  questionCount: z.number().int().min(3).max(50),
+  durationMinutes: z.number().int().min(5).max(480),
+});
+
+export const sharedInterviewJoinBodySchema = z.object({
+  candidateName: z.string().trim().min(2).max(100),
+});
+
+export const sharedInterviewTokenSchema = z.object({
+  token: z.string().regex(/^\d*[a-f0-9]{36,64}$/i, "Invalid interview link"),
+});
+
+export const sharedInterviewAttemptParamsSchema = z.object({ id: interviewIdSchema });
+
+export const sharedAttemptAuthSchema = z.object({
+  attemptToken: z.string().regex(/^\d*[a-f0-9]{64}$/i, "Invalid interview attempt token"),
+});
+
 export const googleCallbackQuerySchema = z.object({
   state: z.string().min(1).optional(),
   code: z.string().min(1).optional(),
