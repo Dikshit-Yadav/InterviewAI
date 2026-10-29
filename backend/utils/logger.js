@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import pino from "pino";
+import os from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,8 +32,9 @@ const logger = pino({
           file: logFile,
           frequency: "daily",
           dateFormat: "yyyy-MM-dd",
+          extension: ".log",
           mkdir: true,
-          limit: { count: 30, removeOtherLogFiles: true },
+          limit: { count: 30 },
         },
       },
     ],
@@ -51,6 +53,8 @@ const logger = pino({
     censor: "[REDACTED]",
   },
   base: {
+    pid: process.pid,
+    hostname: os.hostname(),
     service: "interviewai-api",
     environment: process.env.NODE_ENV || "development",
   },
