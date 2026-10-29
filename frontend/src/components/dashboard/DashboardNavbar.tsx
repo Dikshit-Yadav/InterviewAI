@@ -1,9 +1,11 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams  } from "react-router-dom";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import {AuthService} from "../../services/authService";
 export default function DashboardNavbar() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const name = JSON.parse(sessionStorage.getItem("name") ?? '"User"');
+    const showShareInterview = searchParams.get("create") === import.meta.env.REACT_APP_SHARE_INTERVIEW_KEY;
 
   const handleLogout = async () => {
     try {
@@ -29,7 +31,16 @@ export default function DashboardNavbar() {
         </span>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
+         {showShareInterview && (
+      <button
+        type="button"
+        onClick={() => navigate("/shared-interviews")}
+        className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-hover"
+      >
+        Share interview
+      </button>
+    )}
         <ThemeToggle />
         <div className="group relative flex items-center">
         <button

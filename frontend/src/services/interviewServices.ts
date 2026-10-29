@@ -100,7 +100,105 @@ export const interviewService = {
       const res = await API.get("/history");
       return res.data;
     },
+    createSharedInterview: async (data: SharedInterviewCreate) => {
+      const res = await API.post("/interview/shared", data);
+      return res.data as SharedInterviewCreated;
+    },
+    getSharedInterviews: async () => {
+      const res = await API.get("/interview/shared");
+      return res.data as SharedInterviewTemplate[];
+    },
+    getSharedInterview: async (token: string) => {
+      const res = await API.get(`/interview/shared/${token}`);
+      return res.data as SharedInterviewPublic;
+    },
+    joinSharedInterview: async (token: string, candidateName: string) => {
+      const res = await API.post(`/interview/shared/${token}/join`, { candidateName });
+      sessionStorage.setItem(`shared-attempt-${res.data.attemptId}`, res.data.attemptToken);
+      return res.data as SharedAttempt;
+    },
+    getSharedQuestions: async (attemptId: string) => {
+      const res = await API.get(`/interview/shared-attempt/${attemptId}/questions`, {
+        headers: sharedAttemptHeaders(attemptId),
+      });
+      return res.data as SharedQuestion[];
+    },
+    getSharedFollowUp: async (attemptId: string, questionId: string, answer: string) => {
+      const res = await API.post(`/interview/shared-attempt/${attemptId}/follow-up`,
+        { questionId, answer },
+        { headers: sharedAttemptHeaders(attemptId) }
+      );
+      return res.data as { followUp: SharedQuestion | null };
+    },
+    submitSharedInterview: async (
+      attemptId: string,
+      answers: { questionId: string; answer: string }[]
+    ) => {
+      const res = await API.post(`/interview/shared-attempt/${attemptId}/submit`,
+        { answers },
+        { headers: sharedAttemptHeaders(attemptId) }
+      );
+      sessionStorage.removeItem(`shared-attempt-${attemptId}`);
+      return res.data;
+    },
 }
+
+const sharedAttemptHeaders = (attemptId: string) => {
+    const attemptToken = sessionStorage.getItem(`shared-attempt-${attemptId}`);
+    return attemptToken ? { "x-interview-attempt-token": attemptToken } : undefined;
+};
+
+export type TechnologyLevel = {
+    name: string;
+    level: "Beginner" | "Intermediate" | "Advanced";
+    topics: string[];
+};
+
+export type SharedInterviewCreate = {
+    title: string;
+    role: string;
+    interviewType: "Technical Interview" | "HR Interview" | "System Design Interview" | "Behavioral Interview";
+    technologies: TechnologyLevel[];
+    questionCount: number;
+    durationMinutes: number;
+};
+
+export type SharedInterviewCreated = {
+    id: string;
+    title: string;
+    shareToken: string;
+    shareUrl: string;
+    questionCount: number;
+    durationMinutes: number;
+};
+
+export type SharedInterviewTemplate = SharedInterviewCreated & {
+    role: string;
+    interviewType: string;
+    technologies: TechnologyLevel[];
+    status: string;
+    createdAt: string;
+};
+
+export type SharedInterviewPublic = Omit<SharedInterviewTemplate, "id" | "shareToken" | "shareUrl" | "status" | "createdAt">;
+
+export type SharedAttempt = {
+    attemptId: string;
+    attemptToken: string;
+    title: string;
+    candidateName: string;
+    durationMinutes: number;
+    startedAt: string;
+    expiresAt: string;
+    questionCount: number;
+};
+
+export type SharedQuestion = {
+    _id: string;
+    questionText: string;
+    order: number;
+    followUpToQuestionId?: string;
+};
 
 export interface ResumeReview {
     summary: string;

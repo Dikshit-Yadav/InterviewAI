@@ -29,6 +29,12 @@ const interviewSessionSchema = new mongoose.Schema(
       maxlength: 500,
       default: "",
     },
+    topicScope: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+      default: "",
+    },
     requiresTechnologyScope: {
       type: Boolean,
       default: false,
@@ -37,17 +43,27 @@ const interviewSessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    templateId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InterviewTemplate",
+      index: true,
+    },
+    candidateName: { type: String, trim: true, maxlength: 100 },
+    attemptTokenHash: { type: String, select: false },
+    startedAt: { type: Date, index: true },
+    expiresAt: { type: Date, index: true },
+    submittedAt: { type: Date },
 
     status: {
       type: String,
-      enum: ["started", "completed"],
+      enum: ["started", "completed", "expired"],
       default: "started",
     },
     followUpCount: {
       type: Number,
       default: 0,
       min: 0,
-      max: 2,
+      max: 4,
     },
   },
   { timestamps: true }
