@@ -5,7 +5,7 @@ export default function DashboardNavbar() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const name = JSON.parse(sessionStorage.getItem("name") ?? '"User"');
-    const showShareInterview = searchParams.get("create") === import.meta.env.REACT_APP_SHARE_INTERVIEW_KEY;
+    const showShareInterview = searchParams.get("create") === "shareinterview";
 
   const handleLogout = async () => {
     try {
