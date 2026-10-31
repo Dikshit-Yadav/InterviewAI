@@ -16,6 +16,8 @@ type MonitorEvent = {
 
 type CameraMonitorProps = {
   onEvent?: (event: MonitorEvent) => void;
+  tabSwitchCount?: number;
+  maxTabSwitches?: number;
 };
 
 type Detection = {
@@ -60,7 +62,11 @@ const ABSENCE_THRESHOLD = 3;
 const MULTIPLE_FACE_THRESHOLD = 2;
 const ATTENTION_THRESHOLD = 3;
 
-export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
+export default function CameraMonitor({
+  onEvent,
+  tabSwitchCount,
+  maxTabSwitches = 3,
+}: CameraMonitorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<MediaPipeFaceDetector | null>(null);
@@ -310,10 +316,10 @@ export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
 
   const statusStyle: Record<MonitorStatus, string> = {
     starting: "text-secondary",
-    normal: "text-green-600",
+    normal: "text-green-600 dark:text-green-400",
     absent: "text-red-500",
     multiple: "text-red-500",
-    attention: "text-amber-600",
+    attention: "text-amber-600 dark:text-amber-400",
     error: "text-red-500",
   };
 
@@ -323,7 +329,7 @@ export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
       className="fixed right-4 top-4 z-50 w-64 rounded-xl border border-border bg-surface p-2 shadow-xl"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold">Camera</h2>
+        <h2 className="text-xs font-semibold">Camera Proctor</h2>
 
         <span
           className={`text-right text-[10px] font-medium ${statusStyle[status]}`}
@@ -359,11 +365,24 @@ export default function CameraMonitor({ onEvent }: CameraMonitorProps) {
         </p>
       )}
 
-      {status !== "error" && status !== "starting" && (
-        <p className="mt-1 text-[10px] text-secondary">
-          Faces detected: {faceCount}
-        </p>
-      )}
+      <div className="mt-2 flex items-center justify-between border-t border-border pt-1.5 text-[10px]">
+        <span className="text-secondary">
+          {status !== "error" && status !== "starting" ? `Faces: ${faceCount}` : ""}
+        </span>
+        {tabSwitchCount !== undefined && (
+          <span
+            className={`font-semibold ${
+              tabSwitchCount >= 2
+                ? "text-red-500 font-bold"
+                : tabSwitchCount >= 1
+                ? "text-amber-500"
+                : "text-emerald-600 dark:text-emerald-400"
+            }`}
+          >
+            Tab Switches: {tabSwitchCount}/{maxTabSwitches}
+          </span>
+        )}
+      </div>
     </section>
   );
 }

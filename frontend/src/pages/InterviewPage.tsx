@@ -25,10 +25,11 @@ export default function InterviewPage() {
 
           <div className="space-y-2">
             <label htmlFor="interview-technologies" className="font-semibold">
-              Technologies you work with <span className="font-normal text-muted-foreground">(optional)</span>
+              Technologies you work with <span className="font-normal text-muted-foreground">(required)</span>
             </label>
             <input
               id="interview-technologies"
+              required
               type="text"
               maxLength={500}
               value={technologies}

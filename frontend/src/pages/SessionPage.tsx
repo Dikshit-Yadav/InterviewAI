@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClipboardEvent, KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { AlertTriangle } from "lucide-react";
 
 import ProgressHeader from "@/components/session/ProgressHeader";
 import QuestionCard from "@/components/session/QuestionCard";
 import AnswerBox from "@/components/session/AnswerBox";
 import NavigationControls from "@/components/session/NavigationControls";
 import CameraMonitor from "@/components/session/CameraMonitor";
+import CameraPermissionCheck from "@/components/session/CameraPermissionCheck";
 
 import { interviewService } from "@/services/interviewServices";
 import { answerDraftSchema } from "@/lib/validation";
@@ -74,6 +78,10 @@ export default function SessionPage() {
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
 
+  // Proctoring states
+  const [cameraReady, setCameraReady] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
   const answeredCount = questions.filter((q) => answers[q._id]?.trim()).length;
@@ -100,7 +108,8 @@ export default function SessionPage() {
   useEffect(() => {
     const handleFullscreenChange = () => {
       const fullscreen =
-        document.fullscreenElement === interviewContainerRef.current;
+        document.fullscreenElement === interviewContainerRef.current ||
+        Boolean(document.fullscreenElement);
       setIsFullscreen(fullscreen);
       if (fullscreen) {
         setFullscreenExited(false);
@@ -129,7 +138,12 @@ export default function SessionPage() {
   }, [interviewStarted, submitted]);
 
   const enterFullscreen = async () => {
-    const container = interviewContainerRef.current;
+    if (!cameraReady && !interviewStarted) {
+      toast.error("Camera permission is required before starting the interview.");
+      return;
+    }
+
+    const container = interviewContainerRef.current || document.documentElement;
     if (!container?.requestFullscreen) {
       setFullscreenError("Fullscreen is not supported by this browser.");
       return;
@@ -137,7 +151,7 @@ export default function SessionPage() {
 
     try {
       await container.requestFullscreen();
-      setIsFullscreen(document.fullscreenElement === container);
+      setIsFullscreen(true);
       setFullscreenExited(false);
       setInterviewStarted(true);
       setFullscreenError(null);
@@ -150,11 +164,72 @@ export default function SessionPage() {
   };
 
   const continueWithoutFullscreen = () => {
+    if (!cameraReady && !interviewStarted) {
+      toast.error("Camera permission is required before starting the interview.");
+      return;
+    }
     setIsFullscreen(false);
     setInterviewStarted(true);
     setFullscreenExited(false);
     setFullscreenError(null);
   };
+
+  // tab switch monitoring
+  useEffect(() => {
+    if (!interviewStarted || submitted || questions.length === 0) return;
+
+    let armed = false;
+    // grace period to prevent blurs during fullscreen transition
+    const timer = setTimeout(() => {
+      armed = true;
+    }, 1200);
+
+    let lastSwitchTime = 0;
+
+    const handleTabSwitch = () => {
+      if (!armed) return;
+      const now = Date.now();
+      if (now - lastSwitchTime < 1500) return;
+      lastSwitchTime = now;
+
+      setTabSwitchCount((prev) => {
+        const next = prev + 1;
+        if (next >= 3) {
+          toast.error(
+            "Tab switch limit reached (3/3)! Submitting interview automatically...",
+            { autoClose: 5000 },
+          );
+          void handleFinish(true, true);
+          return 3;
+        } else {
+          toast.warn(
+            `Tab switch detected (${next}/3)! Switching tabs 3 times will automatically submit your interview.`,
+            { autoClose: 4000 },
+          );
+          return next;
+        }
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleTabSwitch();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      handleTabSwitch();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [interviewStarted, submitted, questions.length]);
 
   // keep the draft in localStorage
   useEffect(() => {
@@ -187,41 +262,43 @@ export default function SessionPage() {
     setError(null);
   };
 
-  const handleFinish = async (confirmed = false) => {
+  const handleFinish = async (confirmed = false, autoSubmit = false) => {
     if (!interviewId || !currentQuestion || submitting) return;
 
-    const unanswered = questions.filter(
-      (question) => !answers[question._id]?.trim(),
-    ).length;
+    if (!autoSubmit) {
+      const unanswered = questions.filter(
+        (question) => !answers[question._id]?.trim(),
+      ).length;
 
-    // Final-question submission still requires confirmation when answers are missing.
-    if (unanswered > 0 && !confirmed) {
-      setUnansweredCount(unanswered);
-      setShowFinishConfirm(true);
-      setError(null);
-      return;
-    }
+      // Final-question submission still requires confirmation when answers are missing.
+      if (unanswered > 0 && !confirmed) {
+        setUnansweredCount(unanswered);
+        setShowFinishConfirm(true);
+        setError(null);
+        return;
+      }
 
-    // Keep existing validation after confirmation.
-    if (
-      questions.some(
-        (question) =>
-          question.isTechnologyClarification && !answers[question._id]?.trim(),
-      )
-    ) {
-      setShowFinishConfirm(false);
-      setError(
-        "List the technologies you work with before finishing the interview.",
-      );
-      return;
-    }
+      // Keep existing validation after confirmation.
+      if (
+        questions.some(
+          (question) =>
+            question.isTechnologyClarification && !answers[question._id]?.trim(),
+        )
+      ) {
+        setShowFinishConfirm(false);
+        setError(
+          "List the technologies you work with before finishing the interview.",
+        );
+        return;
+      }
 
-    const introduction = questions.find((question) => question.order === 1);
+      const introduction = questions.find((question) => question.order === 1);
 
-    if (!answers[introduction?._id ?? ""]?.trim()) {
-      setShowFinishConfirm(false);
-      setError("A brief introduction is required before you finish.");
-      return;
+      if (!answers[introduction?._id ?? ""]?.trim()) {
+        setShowFinishConfirm(false);
+        setError("A brief introduction is required before you finish.");
+        return;
+      }
     }
 
     setShowFinishConfirm(false);
@@ -239,7 +316,11 @@ export default function SessionPage() {
 
       setSubmitted(true);
       localStorage.removeItem(draftKey(interviewId));
-      navigate(`/report/${interviewId}`);
+      navigate(
+        autoSubmit
+          ? `/report/${interviewId}?reason=tab_switch`
+          : `/report/${interviewId}`,
+      );
     } catch (err: unknown) {
       console.error("Could not finish interview", err);
 
@@ -365,12 +446,61 @@ export default function SessionPage() {
       onContextMenu={(event) => event.preventDefault()}
       onKeyDown={preventClipboardShortcuts}
     >
+      <ToastContainer position="top-right" autoClose={3500} />
+
       <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
         <div className="flex justify-end">
           <ThemeToggle />
         </div>
 
-        {interviewStarted && !submitted && <CameraMonitor />}
+        {interviewStarted && !submitted && (
+          <CameraMonitor tabSwitchCount={tabSwitchCount} maxTabSwitches={3} />
+        )}
+
+        {/* proctoring info bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                tabSwitchCount === 0
+                  ? "bg-emerald-500"
+                  : tabSwitchCount === 1
+                  ? "bg-amber-500"
+                  : "bg-red-500 animate-pulse"
+              }`}
+            />
+            <span className="text-xs sm:text-sm font-medium">
+              Tab Switches:{" "}
+              <strong
+                className={
+                  tabSwitchCount === 0
+                    ? "text-emerald-500"
+                    : tabSwitchCount === 1
+                    ? "text-amber-500"
+                    : "text-red-500 font-bold"
+                }
+              >
+                {tabSwitchCount} / 3
+              </strong>
+            </span>
+          </div>
+          <span className="text-xs text-secondary">
+            {tabSwitchCount === 0
+              ? "Proctoring active: 3 tab switches will auto-submit"
+              : `${3 - tabSwitchCount} switch${3 - tabSwitchCount === 1 ? "" : "es"} remaining before auto-submit`}
+          </span>
+        </div>
+
+        {tabSwitchCount > 0 && (
+          <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs sm:text-sm text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>Warning:</strong> Tab switch detected ({tabSwitchCount}/3). Exceeding 3 tab switches will submit your interview automatically.
+              </span>
+            </div>
+          </div>
+        )}
 
         <ProgressHeader
           current={currentIndex + 1}
@@ -427,8 +557,9 @@ export default function SessionPage() {
           submitting={submitting}
         />
       </div>
+
       {(!interviewStarted || (fullscreenExited && !isFullscreen)) && (
-        <div className="fixed inset-0 z-[1000] grid place-items-center bg-background px-6">
+        <div className="fixed inset-0 z-[1000] grid place-items-center bg-background/95 backdrop-blur-sm px-6">
           <section
             className="w-full max-w-lg space-y-5 rounded-2xl border border-border bg-surface p-8 text-center shadow-xl"
             aria-labelledby="fullscreen-title"
@@ -438,29 +569,59 @@ export default function SessionPage() {
                 ? "Return to your interview"
                 : "Ready to begin?"}
             </h1>
-            <p className="text-secondary">
+            <p className="text-secondary text-sm">
               {interviewStarted
                 ? "The interview is paused while fullscreen is off. Re-enter fullscreen to continue."
                 : "Your interview will open in fullscreen. Your answers are saved as you go."}
             </p>
+
+            {/* Camera permission check before test starts  */}
+            {!interviewStarted && (
+              <CameraPermissionCheck
+                onReadyChange={setCameraReady}
+                title="Camera Verification"
+                description="Camera access is required for proctoring. Please grant permission and ensure your camera is working before starting."
+              />
+            )}
+
+            {!interviewStarted && (
+              <div className="rounded-lg border border-border bg-surface-hover/50 p-3 text-left text-xs text-100 space-y-1">
+                <p className="font-medium text-foreground">Proctoring Notice:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>Full screen is required during the session.</li>
+                  <li>Camera feed is active during the test.</li>
+                  <li>
+                    Maximum <strong>3 tab switches</strong> permitted before automatic submission.
+                  </li>
+                </ul>
+              </div>
+            )}
+
             {fullscreenError && (
               <p className="text-sm text-error" role="alert">
                 {fullscreenError}
               </p>
             )}
+
             <div className="flex flex-col justify-center gap-3 sm:flex-row">
               <button
                 type="button"
+                disabled={!interviewStarted && !cameraReady}
                 onClick={enterFullscreen}
-                className="rounded-md bg-brand px-5 py-2.5 font-medium text-primary-foreground hover:bg-brand-hover"
+                className="rounded-md bg-brand px-5 py-2.5 font-medium text-primary-foreground hover:bg-brand-hover disabled:opacity-50 transition-opacity"
               >
-                {interviewStarted ? "Resume fullscreen" : "Begin in fullscreen"}
+                {interviewStarted
+                  ? "Resume fullscreen"
+                  : !cameraReady
+                    ? "Allow camera access to begin"
+                    : "Begin in fullscreen"}
               </button>
               {!interviewStarted && fullscreenError && (
                 <button
                   type="button"
+                  disabled={!cameraReady}
                   onClick={continueWithoutFullscreen}
-                  className="rounded-md border border-border px-5 py-2.5 font-medium hover:bg-surface-hover"
+                  className="rounded-md border border-border px-5 py-2.5 font-medium hover:bg-surface-hover disabled:opacity-50"
                 >
                   Continue without fullscreen
                 </button>
@@ -475,6 +636,7 @@ export default function SessionPage() {
           </section>
         </div>
       )}
+
       {showFinishConfirm && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4">
           <section
