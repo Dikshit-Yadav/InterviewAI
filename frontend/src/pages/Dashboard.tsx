@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 import ResumeBuilder from "@/components/dashboard/ResumeBuilder";
 import ResumeActions from "@/components/interview/ResumeActions";
@@ -14,12 +15,20 @@ import { interviewService } from "@/services/interviewServices";
 import type { DashboardData, InterviewHistoryItem } from "@/types/api";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [history, setHistory] = useState<InterviewHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const pendingRedirect = sessionStorage.getItem("auth_redirect");
+    if (pendingRedirect) {
+      sessionStorage.removeItem("auth_redirect");
+      navigate(pendingRedirect, { replace: true });
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const dash = await getDashboard();
@@ -36,7 +45,7 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, []);
+  }, [navigate]);
 
   if (loading) return <PageSkeleton page="dashboard" />;
   if (error || !dashboardData) {

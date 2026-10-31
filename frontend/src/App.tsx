@@ -11,8 +11,6 @@ import Profile from "./pages/Profile";
 import SharedInterviewBuilder from "./pages/SharedInterviewBuilder";
 import SharedInterviewJoin from "./pages/SharedInterviewJoin";
 
-
-
 function App() {
   return (
     <BrowserRouter>
@@ -20,9 +18,10 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Register />} />
-      <Route path="/join/:token" element={<SharedInterviewJoin />} />
 
+        {/* Protected routes: Must be logged in to access */}
         <Route element={<ProtectRoutes />}>
+          <Route path="/join/:token" element={<SharedInterviewJoin />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/interview" element={<InterviewPage />} />
           <Route path="/interview/:interviewId" element={<SessionPage />} />
@@ -30,9 +29,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/shared-interviews" element={<SharedInterviewBuilder />} />
         </Route>
-        
       </Routes>
-
     </BrowserRouter>
   );
 }

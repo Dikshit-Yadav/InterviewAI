@@ -1,16 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
-import { AuthService } from "@/services/authService"
-import {toast } from "react-toastify";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { AuthService } from "@/services/authService";
+import { toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
 import { emailOnlySchema, registerSchema } from "@/lib/validation";
 import { getErrorMessage } from "@/lib/apiError";
+import { Sparkles } from "lucide-react";
 
 import { useState } from "react";
 
 export default function RegisterForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTarget =
+    searchParams.get("redirect") ||
+    sessionStorage.getItem("auth_redirect");
+  const isSharedInterview = Boolean(
+    redirectTarget && redirectTarget.includes("/join/"),
+  );
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -80,9 +89,12 @@ export default function RegisterForm() {
     try {
       await AuthService.register(validation.data);
 
-      toast.success("Registration successful!");
-      navigate("/login");
-
+      toast.success("Registration successful! Please sign in to proceed.");
+      navigate(
+        redirectTarget
+          ? `/login?redirect=${encodeURIComponent(redirectTarget)}`
+          : "/login",
+      );
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Something went wrong. Please try again."));
       console.error("Registration failed", err);
@@ -93,14 +105,22 @@ export default function RegisterForm() {
 
   return (
     <div className="w-full max-w-md p-8 rounded-xl border border-border bg-surface">
-
       {/* title */}
-      <h2 className="text-2xl font-semibold mb-2">
-        Create your account
-      </h2>
-      <p className="text-gray-400 mb-6">
-        Start practicing in under a minute.
-      </p>
+      <h2 className="text-2xl font-semibold mb-2">Create your account</h2>
+      <p className="text-gray-400 mb-6">Start practicing in under a minute.</p>
+
+      {/* Shared Interview Banner */}
+      {isSharedInterview && (
+        <div className="mb-5 rounded-xl border border-brand/30 bg-brand/10 p-3.5 text-xs space-y-1">
+          <p className="font-semibold text-foreground flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-brand" />
+            Interview Assessment Access
+          </p>
+          <p className="text-100 leading-relaxed">
+            Create an account to verify your identity and start your shared interview assessment.
+          </p>
+        </div>
+      )}
 
       {/* name */}
       <div className="mb-4">
@@ -123,57 +143,53 @@ export default function RegisterForm() {
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
-              setCodeSent(false);
               setVerifiedEmail("");
+              setCodeSent(false);
               setOtp("");
             }}
             placeholder="you@university.edu"
-            className="bg-black/40 border-white/10 text-white placeholder:text-gray-500"
             autoComplete="email"
+            className="flex-1 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
           />
           <Button
             type="button"
             variant="outline"
-            className="h-auto shrink-0 border-border text-foreground"
+            className="border-white/10 text-white hover:bg-white/10"
             onClick={requestCode}
             loading={sendingCode}
             disabled={currentEmailVerified}
           >
-            {currentEmailVerified
-              ? "Verified"
-              : codeSent
-                ? "Resend code"
-                : "Verify email"}
+            {currentEmailVerified ? "Verified" : codeSent ? "Resend" : "Send code"}
           </Button>
         </div>
-        {codeSent && !currentEmailVerified && (
-          <div className="mt-3 flex gap-2">
+        {currentEmailVerified && (
+          <p className="mt-1 text-xs text-green-400">Email address verified.</p>
+        )}
+      </div>
+
+      {codeSent && !currentEmailVerified && (
+        <div className="mb-4 rounded-lg border border-white/10 bg-black/20 p-3">
+          <label className="text-xs text-gray-300">Verification code</label>
+          <div className="mt-2 flex gap-2">
             <Input
               type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) => setOtp(e.target.value)}
               placeholder="6-digit code"
-              aria-label="Email verification code"
-              className="bg-black/40 border-white/10 text-white placeholder:text-gray-500"
+              maxLength={6}
+              className="flex-1 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
             />
             <Button
               type="button"
-              variant="outline"
-              className="h-auto shrink-0 border-border text-foreground"
+              className="bg-brand text-primary-foreground hover:bg-brand-hover"
               onClick={verifyCode}
               loading={verifyingCode}
             >
-              Verify code
+              Verify
             </Button>
           </div>
-        )}
-        {currentEmailVerified && (
-          <p className="mt-2 text-sm text-success">Email verified</p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* password */}
       <div className="mb-4">
@@ -183,20 +199,18 @@ export default function RegisterForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
+          autoComplete="new-password"
           className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
         />
-        <p className="mt-2 text-xs text-gray-500">
-          Use at least 8 characters, including uppercase and lowercase letters, a number, and a special character.
-        </p>
       </div>
 
-      {/* target role */}
+      {/* Target role */}
       <div className="mb-6">
-        <label className="text-sm text-gray-300">Target role</label>
+        <label className="text-sm text-gray-300">Target Role</label>
         <select
-          className="mt-2 w-full p-3 rounded-md bg-black/40 border border-white/10 text-gray-300 focus:outline-none"
           value={targetRole}
           onChange={(e) => setTargetRole(e.target.value)}
+          className="w-full mt-2 p-2 rounded-md bg-black/40 border border-white/10 text-white"
         >
           <option value="">Pick your target role</option>
           <option>MERN Developer</option>
@@ -208,7 +222,11 @@ export default function RegisterForm() {
       </div>
 
       {/* btn */}
-      <Button className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover" onClick={submit} loading={loading}>
+      <Button
+        className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover"
+        onClick={submit}
+        loading={loading}
+      >
         {loading ? "Creating account..." : "Create account →"}
       </Button>
 
@@ -222,7 +240,16 @@ export default function RegisterForm() {
       {/* footer */}
       <p className="text-center text-sm text-gray-400 mt-6">
         Already have an account?{" "}
-        <span className="text-brand cursor-pointer hover:underline" onClick={() => navigate("/login")}>
+        <span
+          className="text-brand cursor-pointer hover:underline font-semibold"
+          onClick={() =>
+            navigate(
+              redirectTarget
+                ? `/login?redirect=${encodeURIComponent(redirectTarget)}`
+                : "/login",
+            )
+          }
+        >
           Sign in
         </span>
       </p>

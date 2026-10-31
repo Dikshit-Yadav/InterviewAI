@@ -73,11 +73,31 @@ export default function SharedInterviewJoin() {
   const [fullscreenExited, setFullscreenExited] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [autoSubmittedReason, setAutoSubmittedReason] = useState<string | null>(null);
+  const [loggedInUserEmail, setLoggedInUserEmail] = useState("");
 
   const submissionLock = useRef(false);
   const attemptRef = useRef(attempt);
   const questionsRef = useRef(questions);
   const answersRef = useRef(answers);
+
+  useEffect(() => {
+    try {
+      const storedName = sessionStorage.getItem("name");
+      if (storedName) {
+        const parsed = JSON.parse(storedName);
+        if (parsed && typeof parsed === "string") {
+          setCandidateName((current) => current || parsed);
+        }
+      }
+      const storedEmail = sessionStorage.getItem("email");
+      if (storedEmail) {
+        const parsedEmail = JSON.parse(storedEmail);
+        if (parsedEmail && typeof parsedEmail === "string") {
+          setLoggedInUserEmail(parsedEmail);
+        }
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     attemptRef.current = attempt;
@@ -346,12 +366,12 @@ export default function SharedInterviewJoin() {
       </main>
     );
 
-=  if (submitted)
+ if (submitted)
     return (
       <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
         <ToastContainer position="top-right" autoClose={3500} />
 
-=        <header className="shrink-0 border-b border-border bg-surface px-4 sm:px-6 py-4 shadow-sm print:hidden">
+       <header className="shrink-0 border-b border-border bg-surface px-4 sm:px-6 py-4 shadow-sm print:hidden">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -450,7 +470,7 @@ export default function SharedInterviewJoin() {
         </header>
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-=          <div className="mb-8 space-y-3">
+         <div className="mb-8 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand/10 text-brand border border-brand/20">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -626,6 +646,18 @@ export default function SharedInterviewJoin() {
                     Enter your name and test your camera to unlock the interview.
                   </p>
                 </div>
+
+                {loggedInUserEmail && (
+                  <div className="flex items-center justify-between text-xs bg-surface-hover/60 px-3 py-2 rounded-xl border border-border">
+                    <div className="flex items-center gap-1.5 text-foreground font-medium">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                      <span>Authenticated Account</span>
+                    </div>
+                    <span className="text-secondary font-mono text-[11px] truncate max-w-[180px]">
+                      {loggedInUserEmail}
+                    </span>
+                  </div>
+                )}
 
                 <label className="block space-y-2">
                   <span className="text-sm font-medium flex items-center justify-between">

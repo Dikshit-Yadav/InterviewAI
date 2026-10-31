@@ -1,16 +1,24 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthService } from "@/services/authService";
 import { toast } from "react-toastify";
 import GoogleAuthButton from "./GoogleAuthButton";
 import { loginSchema } from "@/lib/validation";
 import { getErrorMessage } from "@/lib/apiError";
+import { Sparkles } from "lucide-react";
 
 import { useEffect, useState } from "react";
 
 export default function LoginForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTarget =
+    searchParams.get("redirect") ||
+    sessionStorage.getItem("auth_redirect") ||
+    "/dashboard";
+  const isSharedInterview = redirectTarget.includes("/join/");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,7 +95,8 @@ export default function LoginForm() {
       await AuthService.login(validation.data);
 
       toast.success("Login successful!");
-      navigate("/dashboard");
+      sessionStorage.removeItem("auth_redirect");
+      navigate(redirectTarget, { replace: true });
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Something went wrong. Please try again."));
       console.error("Login failed", err);
@@ -98,9 +107,22 @@ export default function LoginForm() {
 
   return (
     <div className="w-full max-w-md p-8 rounded-xl border border-border bg-surface">
-      {/* title */}
+      {/* Title */}
       <h2 className="text-2xl font-semibold mb-2">Welcome back</h2>
       <p className="text-gray-400 mb-6">Sign in to continue your prep.</p>
+
+      {/* Shared Interview Banner if accessing via link */}
+      {isSharedInterview && (
+        <div className="mb-5 rounded-xl border border-brand/30 bg-brand/10 p-3.5 text-xs space-y-1">
+          <p className="font-semibold text-foreground flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-brand" />
+            Interview Assessment Access
+          </p>
+          <p className="text-100 leading-relaxed">
+            Please sign in to access your shared interview assessment. Don't have an account? Click "Create one" below to sign up.
+          </p>
+        </div>
+      )}
 
       {recoveringPassword ? (
         <>
@@ -131,33 +153,24 @@ export default function LoginForm() {
           ) : (
             <>
               <div className="mb-4">
-                <label className="text-sm text-gray-300">Email code</label>
+                <label className="text-sm text-gray-300">Reset code</label>
                 <Input
                   type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
                   value={resetCode}
-                  onChange={(e) =>
-                    setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="6-digit code"
+                  onChange={(e) => setResetCode(e.target.value)}
+                  placeholder="Enter 6-digit code"
                   className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="text-sm text-gray-300">New password</label>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
+                  placeholder="At least 6 characters"
                   className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
                 />
-                <p className="mt-2 text-xs text-gray-500">
-                  Use at least 8 characters, including uppercase and lowercase letters, a number, and a special character.
-                </p>
               </div>
               <Button
                 className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover"
@@ -166,31 +179,26 @@ export default function LoginForm() {
               >
                 Reset password
               </Button>
-              <button
-                type="button"
-                className="mt-3 w-full text-sm text-brand hover:underline"
-                onClick={requestPasswordReset}
-                disabled={loading}
-              >
-                Resend code
-              </button>
             </>
           )}
-          <button
-            type="button"
-            className="mt-5 w-full text-sm text-brand hover:underline"
-            onClick={() => {
-              setRecoveringPassword(false);
-              setResetCodeSent(false);
-              setResetCode("");
-              setNewPassword("");
-            }}
-          >
-            Back to sign in
-          </button>
+          <p className="text-center text-sm text-gray-400 mt-6">
+            Remembered your password?{" "}
+            <span
+              className="text-brand cursor-pointer hover:underline"
+              onClick={() => {
+                setRecoveringPassword(false);
+                setResetCodeSent(false);
+                setResetCode("");
+                setNewPassword("");
+              }}
+            >
+              Back to sign in
+            </span>
+          </p>
         </>
       ) : (
         <>
+          {/* Email input */}
           <div className="mb-4">
             <label className="text-sm text-gray-300">Email</label>
             <Input
@@ -198,10 +206,12 @@ export default function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@university.edu"
+              autoComplete="email"
               className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
             />
           </div>
 
+          {/* Password input */}
           <div className="mb-2">
             <label className="text-sm text-gray-300">Password</label>
             <Input
@@ -209,20 +219,27 @@ export default function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               className="mt-2 bg-black/40 border-white/10 text-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-xs text-gray-500">
-              Use at least 8 characters, including uppercase and lowercase letters, a number, and a special character.
-            </p>
           </div>
-          <button
-            type="button"
-            className="mb-6 block ml-auto text-sm text-brand hover:underline"
-            onClick={() => setRecoveringPassword(true)}
-          >
-            Forgot password?
-          </button>
 
+          <div className="mb-6 flex justify-end">
+            <button
+              type="button"
+              className="text-xs text-gray-400 hover:text-white"
+              onClick={() => {
+                setRecoveringPassword(true);
+                setResetCodeSent(false);
+                setResetCode("");
+                setNewPassword("");
+              }}
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          {/* Submit button */}
           <Button
             className="w-full py-5 text-base bg-brand text-primary-foreground hover:bg-brand-hover"
             onClick={submit}
@@ -241,8 +258,14 @@ export default function LoginForm() {
           <p className="text-center text-sm text-gray-400 mt-6">
             New to InterviewAI?{" "}
             <span
-              className="text-brand cursor-pointer hover:underline"
-              onClick={() => navigate("/signup")}
+              className="text-brand cursor-pointer hover:underline font-semibold"
+              onClick={() =>
+                navigate(
+                  redirectTarget && redirectTarget !== "/dashboard"
+                    ? `/signup?redirect=${encodeURIComponent(redirectTarget)}`
+                    : "/signup",
+                )
+              }
             >
               Create one
             </span>
