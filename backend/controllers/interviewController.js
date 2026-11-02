@@ -14,6 +14,10 @@ import {
   fetchSharedInterviewQuestions,
   createSharedFollowUpQuestion,
   submitSharedInterviewService,
+  getInterviewSessionState,
+  processInterviewMessage,
+  recordSessionViolation,
+  processCodeSubmission,
 } from "../services/interviewServices.js";
 import logger from "../utils/logger.js";
 import { extractResumeText } from "../services/resumeService.js";
@@ -136,7 +140,6 @@ export const reviewUploadedResume = async (req, res) => {
   }
 };
 
-
 export const getQuestions = async (req, res) => {
   try {
     const { id } = req.params;
@@ -189,7 +192,7 @@ export const generateReport = async (req, res) => {
     const { id } = req.params;
 
     const session = await assertInterviewOwner(req.user.id, id);
-    if (session.status !== "completed") {
+    if (session.status !== "completed" && session.status !== "terminated") {
       return res.status(409).json({
         message: "Finish the interview before opening its report.",
       });
@@ -205,6 +208,7 @@ export const generateReport = async (req, res) => {
     res.status(err.status || 400).json({ message: err.message });
   }
 };
+
 const attemptTokenFromRequest = (req) =>
   req.get("x-interview-attempt-token") || req.cookies?.interview_attempt_token;
 
@@ -315,5 +319,69 @@ export const submitInterview = async (req, res) => {
       logger.error({ err, requestId: req.id }, "Could not submit interview");
     }
     res.status(err.status || 400).json({ message: err.message });
+  }
+};
+
+// ==========================================
+// REAL-TIME CONVERSATIONAL INTERVIEW APIS
+// ==========================================
+
+export const getSessionState = async (req, res) => {
+  try {
+    const session = await getInterviewSessionState(req.user.id, req.params.id);
+    res.status(200).json(session);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
+  }
+};
+
+export const sendInterviewMessage = async (req, res) => {
+  try {
+    const result = await processInterviewMessage(
+      req.user.id,
+      req.params.id,
+      req.body.message
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    if (error.isHttpError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    logger.error({ err: error, requestId: req.id }, "Could not process interview message");
+    res.status(error.status || 502).json({
+      message: "The AI service encountered an error processing your message. Please try again.",
+    });
+  }
+};
+
+export const submitCodingSolution = async (req, res) => {
+  try {
+    const result = await processCodeSubmission(
+      req.user.id,
+      req.params.id,
+      req.body
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    if (error.isHttpError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    logger.error({ err: error, requestId: req.id }, "Could not process code submission");
+    res.status(error.status || 502).json({
+      message: "The AI service encountered an error evaluating your code. Please try again.",
+    });
+  }
+};
+
+export const logInterviewViolation = async (req, res) => {
+  try {
+    const result = await recordSessionViolation(
+      req.user.id,
+      req.params.id,
+      req.body.type
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
   }
 };

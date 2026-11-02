@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import crypto from "crypto";
 import { Groq } from 'groq-sdk';
 import logger from "../utils/logger.js";
 // import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -39,7 +40,6 @@ const reportModel = resolveGroqModel(
 );
 const lowReasoning = (model) =>
   model.startsWith("openai/gpt-oss-") ? { reasoning_effort: "low" } : {};
-// const genAI = groq.createClient
 
 const introductionQuestion = (role) =>
   `Please give a brief introduction about yourself and your learning journey related to ${role}.`;
@@ -356,10 +356,7 @@ ${resumeText}
   }
 };
 
-//evaluate ALL answers of an interview in a single AI call
-// context: { role, experience, interviewType }
-// items:   [{ question: string, answer: string }]
-// returns: array with the same length/order as `items`
+// Evaluate ALL answers of an interview in a single AI call
 export const evaluateAllAnswers = async (context, items) => {
   try {
     const prompt = `
@@ -404,7 +401,6 @@ No markdown. No explanation. Only JSON.
       (Array.isArray(data.evaluations) ? data.evaluations : []).map((e) => [Number(e.index), e])
     );
 
-    // always return one evaluation per item, even if the AI skipped one
     return items.map((_, i) => {
       const e = byIndex.get(i) || {};
       const score = Number(e.score);
@@ -422,7 +418,7 @@ No markdown. No explanation. Only JSON.
   }
 };
 
-//report
+// Generates the final performance report
 export const generateFinalReportAI = async (answers) => {
   try {
     const prompt = `
@@ -446,7 +442,7 @@ Return strictly JSON:
     const response = await groq.chat.completions.create({
       model: reportModel,
       messages: [{ role: "user", content: prompt }],
-       response_format: { type: "json_object" },
+      response_format: { type: "json_object" },
     });
 
     const text = response.choices[0].message.content;
@@ -463,112 +459,337 @@ Return strictly JSON:
   }
 };
 
+/**
+ * Real-time Conversational Turn Generator
+ * Decides dynamically between INTERVIEW_QUESTION, CODING_QUESTION, or INTERVIEW_COMPLETE
+ */
+export const generateStructuredInterviewTurn = async ({
+  role,
+  experience,
+  interviewType,
+  technologyScope = "",
+  conversationHistory = [],
+  codingQuestionsCount = 0,
+  candidateAnswer = "",
+  unprofessionalStrikes = 0,
+  followUpCount = 0,
+}) => {
+  const isTechnical =
+    interviewType === "Technical Interview" ||
+    interviewType === "System Design Interview";
 
+  const totalAnswered = conversationHistory.filter(
+    (m) => m.role === "candidate"
+  ).length;
 
+  // Check if the immediately preceding AI question was a follow-up
+  const lastAiMessage = [...conversationHistory].reverse().find(
+    (m) => m.role === "ai" && (m.type === "INTERVIEW_QUESTION" || m.type === "CODING_QUESTION")
+  );
+  const wasLastQuestionFollowUp = Boolean(lastAiMessage?.isFollowUp);
 
-// export const generateQuestions = async (role, experience, interviewType) => {
-//   try {
-//     const model = genAI.getGenerativeModel({
-//       model: "gemini-flash-latest",
-//     });
+  // Total follow-up questions asked so far in the interview
+  const totalFollowUps = followUpCount || conversationHistory.filter(
+    (m) => m.role === "ai" && m.isFollowUp
+  ).length;
 
-//     const prompt = `
-// Take a mock interview for the role of ${role} with ${experience} level experience and interview type ${interviewType}.
-// Conduct the interview in 3 rounds, increasing difficulty in each round:
-// Round 1 (Basic): Ask fundamental questions to test core knowledge.
-// Round 2 (Intermediate): Ask application-based and scenario-based questions. Include follow-up and cross-questions based on the candidate’s answers.
-// Round 3 (Advanced): Ask complex, real-world, and problem-solving questions. Include strict cross-questioning, edge cases, and deep conceptual understanding.
+  // Maximum allowed follow-ups across the entire interview session is 3 to 4.
+  // And consecutive follow-up questions are strictly disallowed.
+  const maxFollowUpsAllowed = 3;
+  const canAskFollowUp = !wasLastQuestionFollowUp && totalFollowUps < maxFollowUpsAllowed;
 
-// Return strictly in JSON format like:
-// ["Question 1", "Question 2", "Question 3"]
-// `;
+  // Determine appropriate programming language for coding challenges based on role & scope
+  const roleLower = (role + " " + technologyScope).toLowerCase();
+  const defaultCodingLanguage = roleLower.includes("machine learning") || roleLower.includes("data") || roleLower.includes("python")
+    ? "python"
+    : roleLower.includes("java") && !roleLower.includes("javascript")
+    ? "java"
+    : roleLower.includes("c++") || roleLower.includes("cpp")
+    ? "cpp"
+    : "javascript";
 
-//     const result = await model.generateContent(prompt);
-//     const text = result.response.text();
+  const prompt = `
+You are a sharp, perceptive, and realistic senior interviewer conducting a live ${interviewType} for the role of ${role} (${experience} level).
+${technologyScope ? `Allowed technologies/scope: ${technologyScope}. Do not drift outside this scope.` : ""}
 
-//     const data = text.replace(/```json|```/g, "").trim();
+Candidate's current answer to your latest question:
+<candidate_answer>
+${candidateAnswer ? candidateAnswer.slice(0, 4000) : "(First question of the interview)"}
+</candidate_answer>
 
-//     return JSON.parse(data);
+Current Unprofessional / Nonsense Strikes Count: ${unprofessionalStrikes} (out of maximum 3 allowed)
 
-//   } catch (error) {
-//     throw new Error(error.message);
-//   }
-// };
+Recent Conversation History:
+${JSON.stringify(
+  conversationHistory.slice(-10).map((m) => ({
+    role: m.role,
+    type: m.type,
+    content: m.content ? m.content.slice(0, 350) : "",
+    isFollowUp: m.isFollowUp || false,
+  }))
+)}
 
-// export const evaluateAnswer = async (question, answer) => {
-//   try {
-//     const model = genAI.getGenerativeModel({
-//       model: "gemini-flash-latest",
-//     });
+HUMAN INTERVIEWER PERSONA & DYNAMIC ONGOING CONVERSATION:
+You are NOT following a pre-written or prepared script. You act as an observant, realistic senior engineering lead who conducts spontaneous, dynamic technical interviews in real time.
 
-//     const prompt = `
-// Question: ${question}
-// User Answer: ${answer}
+MOOD, ATTITUDE & DEMEANOR AWARENESS:
+- Pay close attention to the candidate's conversational tone, emotional sentiment, and attitude in their latest response:
+  - If the candidate is boastful, flippant, or overconfident: Be skeptical and directly probe hard edge cases, concurrency pitfalls, or failure modes to verify if they truly understand the technology.
+  - If the candidate changes mood, becomes defensive, or acts frustrated: Acknowledge their tone professionally and calmly, maintain interviewer authority, and redirect them to concrete technical facts.
+  - If the candidate drops superficial buzzwords without substance (e.g. "we just scaled with microservices and Kafka"): Immediately drill down into the implementation details (e.g. partition keys, consumer groups, reconciliation loops).
+  - If the candidate demonstrates genuine technical depth: Acknowledge their strong insight and smoothly transition to architectural trade-offs or a practical hands-on coding challenge.
 
-// Evaluate and return strictly JSON:
-// {
-//   "score": number (0-10),
-//   "skill": "one main skill (e.g. JavaScript, React, DSA, System Design)",
-//   "strengths": "...",
-//   "weaknesses": "...",
-//   "correctAnswer": "..."
-// }
-// `;
+STRICT FOLLOW-UP RULES (CRITICAL USER POLICY):
+- Total follow-up questions asked so far in this interview: ${totalFollowUps} (Maximum limit: 3 to 4 total across the entire session)
+- Was the immediately preceding question a follow-up?: ${wasLastQuestionFollowUp ? "YES (CONSECUTIVE FOLLOW-UPS ARE FORBIDDEN)" : "NO"}
+- Is a follow-up question permitted right now?: ${canAskFollowUp ? "YES, BUT ONLY IF candidate leaves an explicit loophole" : "STRICTLY NO (Forbidden: either max follow-ups reached or last question was already a follow-up)"}
 
-//     const result = await model.generateContent(prompt);
-//     const text = result.response.text();
+1. DO NOT ASK FOLLOW-UPS IF THE CANDIDATE GIVES A CORRECT ANSWER:
+   - If the candidate gives a correct, solid, or competent answer: DO NOT ask a follow-up!
+   - Follow-ups are NOT required. Give a brief acknowledgment (e.g. "Good, that covers the key points.") and move immediately to a new core technical topic or coding round.
+   - Set "isFollowUp": false and "stage": "Core Questions".
 
-//     const data = text.replace(/```json|```/g, "").trim();
+2. ONLY ASK A FOLLOW-UP IF THE CANDIDATE LEAVES A CLEAR LOOPHOLE:
+   - You may ONLY ask a follow-up question if ALL of the following are true:
+     a) The candidate made a concrete factual mistake, left an obvious loophole/flaw, or contradicted themselves in their explanation.
+     b) The follow-up question directly challenges that exact loophole from what they said in their answer.
+     c) Follow-ups are permitted right now (${canAskFollowUp ? "PERMITTED" : "FORBIDDEN"}).
+   - If their answer does not have an explicit loophole or bug, DO NOT ask a follow-up. Advance to a new core question.
 
-//     return JSON.parse(data);
+3. NEVER ASK MULTIPLE FOLLOW-UP QUESTIONS IN A ROW:
+   - If wasLastQuestionFollowUp is true, you CANNOT ask another follow-up. You MUST introduce a fresh technical topic or advance the interview.
+   - Never interrogate the user with back-to-back follow-up chains on the same topic.
 
-//   } catch (error) {
-//     throw new Error(error.message);
-//   }
-// };
+4. TOTAL SESSION LIMIT (MAXIMUM 3-4 FOLLOW-UPS TOTAL):
+   - Across the entire interview, there should only ever be 3 to 4 follow-up questions total.
+   - If ${totalFollowUps} >= ${maxFollowUpsAllowed}: You CANNOT ask any more follow-up questions for the rest of the interview. Always set "isFollowUp": false.
 
-// export const generateFinalReportAI = async (answers) => {
-//   try {
-//     const model = genAI.getGenerativeModel({
-//       model: "gemini-flash-latest",
-//     });
+EVERY QUESTION MUST BE 100% DYNAMIC:
+- Never ask generic textbook trivia or canned script questions.
+- Anchor your next question in the specific statements, libraries, algorithms, or architectures the candidate mentioned in their previous answer.
+- Formulate questions that test practical engineering judgment and real-world system building.
 
-//     const prompt = `
-// You are an expert interview evaluator.
+RULE 1: NONSENSE & UNPROFESSIONAL CONDUCT DETECTION (3-STRIKES POLICY):
+If the candidate's answer is:
+- Irrelevant, trolling, or nonsensical (e.g., "i am king", "idk", "haha", "asdfghjk", random gibberish, emojis)
+- Arrogant, disrespectful, or mocking the interview process
+- Complete refusal to answer or dodging the technical question without attempting it
 
-// Analyze the following interview answers:
+YOU MUST:
+- Set "isUnprofessional": true
+- Respond directly to the bad behavior as a real human interviewer:
+  - If current strikes is 0 (First strike): Be firm and professional. Call out the behavior explicitly:
+    "That is not the correct or professional behavior for an interview. Saying something like '${candidateAnswer.slice(0, 50)}' is completely irrelevant. This is a formal technical interview assessment. Please take it seriously and answer the question: [re-state or clarify the technical question]."
+  - If current strikes is 1 (Second strike): Give a stern final warning:
+    "This is your second warning for unprofessional and non-serious behavior. In a real-world engineering team, professional communication and technical focus are mandatory. If you continue with irrelevant answers, we will terminate this interview immediately: [re-state question]."
+  - If current strikes is 2 or more (Third and final strike): Conclude and reject:
+    Return type "INTERVIEW_REJECTED" with question/message:
+    "You have repeatedly displayed unprofessional conduct and failed to take this assessment seriously despite multiple warnings. We hold our engineers to high professional standards, and based on your conduct, we will not be moving forward with your candidacy. This interview is concluded."
 
-// ${JSON.stringify(answers)}
+RULE 2: NORMAL DYNAMIC TECHNICAL PROGRESSION (when candidate answers seriously):
+- If candidate's answer leaves an explicit loophole AND canAskFollowUp is true (${canAskFollowUp}): ask ONE focused follow-up targeting that loophole. (type: "INTERVIEW_QUESTION", isFollowUp: true, stage: "Follow-up", isUnprofessional: false).
+- Otherwise (candidate answered correctly OR follow-up is not allowed): advance to a brand new core technical topic. (type: "INTERVIEW_QUESTION", isFollowUp: false, stage: "Core Questions", isUnprofessional: false).
+- Practical Coding Challenge: If this is a Technical or System Design interview, and at least 2 technical topics have been covered, and codingQuestionsCount is 0: introduce a practical coding challenge directly relevant to the discussed topics (type: "CODING_QUESTION", language: "${defaultCodingLanguage}").
+- Conclusion: If 5 or more questions have been answered including coding, conclude the interview (type: "INTERVIEW_COMPLETE").
+- NEVER repeat a question already asked in the conversation history.
 
-// Return strictly JSON:
+RESPONSE FORMAT (STRICT JSON ONLY):
+If INTERVIEW_QUESTION:
+{
+  "type": "INTERVIEW_QUESTION",
+  "questionId": "${crypto.randomUUID()}",
+  "question": "Your question text here (or professional warning redirecting to the question)",
+  "isFollowUp": true or false,
+  "isUnprofessional": true or false,
+  "stage": "Core Questions" or "Follow-up"
+}
 
-// {
-//   "summary": "overall performance summary",
+If INTERVIEW_REJECTED (on 3rd strike):
+{
+  "type": "INTERVIEW_REJECTED",
+  "questionId": "${crypto.randomUUID()}",
+  "question": "You have repeatedly displayed unprofessional conduct... We will not be moving forward with your candidacy. This interview is concluded.",
+  "isUnprofessional": true,
+  "stage": "Completed"
+}
 
-//   "techScore": number (0-10),
-//   "clarityScore": number (0-10),
-//   "confidenceScore": number (0-10),
+If CODING_QUESTION:
+{
+  "type": "CODING_QUESTION",
+  "questionId": "${crypto.randomUUID()}",
+  "title": "Concise Problem Title",
+  "question": "Clear problem description and instructions",
+  "language": "${defaultCodingLanguage}",
+  "timeLimitSeconds": 1200,
+  "constraints": ["Constraint 1", "Constraint 2"],
+  "examples": [
+    {
+      "input": "e.g. nums = [2, 7, 11, 15], target = 9",
+      "output": "e.g. [0, 1]",
+      "explanation": "Brief explanation"
+    }
+  ],
+  "starterCode": "${defaultCodingLanguage === "python" ? "def solution():\\n    # Write your solution here\\n    pass\\n" : "function solution(input) {\\n  // Write your solution here\\n}\\n"}",
+  "evaluationCriteria": [
+    "Correctness",
+    "Time Complexity",
+    "Space Complexity",
+    "Code Quality",
+    "Edge Case Handling",
+    "Problem-Solving Approach"
+  ],
+  "stage": "Coding Round"
+}
 
-//   "strongTopics": ["..."],
-//   "weakTopics": ["..."],
+If INTERVIEW_COMPLETE:
+{
+  "type": "INTERVIEW_COMPLETE",
+  "message": "Thank you! We have completed all technical questions. You can now end the interview and view your detailed evaluation report."
+}
+`;
 
-//   "learningPath": ["step1", "step2", "step3"],
+  try {
+    const response = await groq.chat.completions.create({
+      model: interviewModel,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a structured AI technical interviewer. You always respond in valid JSON with structured type flags (INTERVIEW_QUESTION, CODING_QUESTION, or INTERVIEW_COMPLETE). Never output markdown outside the JSON.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.6,
+      max_completion_tokens: 1500,
+      ...lowReasoning(interviewModel),
+    });
 
-//   "tips": ["tip1", "tip2"]
-// }
-// `;
+    const text = response.choices[0]?.message?.content?.trim();
+    if (!text) throw new Error("AI returned empty interview turn");
+    const parsed = JSON.parse(text);
 
-//     const result = await model.generateContent(prompt);
-//     const text = result.response.text();
+    if (!parsed.type) {
+      parsed.type = "INTERVIEW_QUESTION";
+    }
+    if (!parsed.questionId) {
+      parsed.questionId = crypto.randomUUID();
+    }
 
-//     const cleaned = text.replace(/```json|```/g, "").trim();
+    // Programmatic enforcement of follow-up rules:
+    // 1. Never allow consecutive follow-up questions
+    // 2. Never allow more than 3-4 follow-ups total across the session
+    if (parsed.isFollowUp && (!canAskFollowUp || totalFollowUps >= maxFollowUpsAllowed || wasLastQuestionFollowUp)) {
+      parsed.isFollowUp = false;
+      if (parsed.stage === "Follow-up") {
+        parsed.stage = "Core Questions";
+      }
+    }
 
-//     const jsonStart = cleaned.indexOf("{");
-//     const jsonEnd = cleaned.lastIndexOf("}");
+    return parsed;
+  } catch (error) {
+    logger.error({ err: error }, "Failed to generate structured interview turn");
+    throw error;
+  }
+};
 
-//     return JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+/**
+ * AI Coding Rubric Evaluation
+ * Evaluates candidate code against multi-criteria rubric without executing arbitrary code in the Node process.
+ */
+export const evaluateCodeRubricAI = async ({
+  questionId,
+  question,
+  language,
+  code,
+  evaluationCriteria,
+}) => {
+  const prompt = `
+You are a senior technical interviewer and principal engineer reviewing code submitted by an interview candidate.
 
-//   } catch (error) {
-//     throw new Error(error.message);
-//   }
-// };
+Problem Description:
+${question}
+
+Language: ${language}
+Evaluation Rubric: ${JSON.stringify(evaluationCriteria || [
+    "Correctness",
+    "Time Complexity",
+    "Space Complexity",
+    "Code Quality",
+    "Edge Case Handling",
+    "Problem-Solving Approach"
+  ])}
+
+Candidate Submitted Code:
+\`\`\`${language}
+${code}
+\`\`\`
+
+Perform a rigorous, fair, multi-criteria technical review. Evaluate:
+A. Correctness: Does the solution solve the problem? Is the logic sound? Does it meet requirements? (Score: 0-100)
+B. Time Complexity: Big-O analysis and whether an optimized approach exists.
+C. Space Complexity: Big-O auxiliary memory analysis.
+D. Code Quality: Readability, clean structure, variable naming, maintainability. (Score: 0-100)
+E. Edge Cases: Handling of empty inputs, boundary values, single elements, duplicates. (Score: 0-100)
+F. Problem-Solving Approach: Suitability of the algorithm, complexity trade-offs, and unnecessary operations. (Score: 0-100)
+G. Overall Score: 0-100 composite score based on the rubric.
+H. Code-Specific Follow-up Question: Exactly ONE insightful interview question directly about the candidate's implementation decisions.
+
+Return STRICT JSON only matching this exact shape:
+{
+  "questionId": "${questionId || crypto.randomUUID()}",
+  "status": "EVALUATED",
+  "score": number (0-100),
+  "correctness": {
+    "score": number (0-100),
+    "feedback": "string"
+  },
+  "timeComplexity": {
+    "complexity": "O(...)",
+    "feedback": "string"
+  },
+  "spaceComplexity": {
+    "complexity": "O(...)",
+    "feedback": "string"
+  },
+  "codeQuality": {
+    "score": number (0-100),
+    "feedback": "string"
+  },
+  "edgeCases": {
+    "score": number (0-100),
+    "feedback": "string"
+  },
+  "problemSolving": {
+    "score": number (0-100),
+    "feedback": "string"
+  },
+  "overallFeedback": "string",
+  "followUpQuestion": "string"
+}
+`;
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: evaluationModel,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a strict, objective technical code evaluator. Return only valid JSON evaluating the candidate's code.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      max_completion_tokens: 1500,
+    });
+
+    const content = response.choices[0]?.message?.content?.trim();
+    if (!content) throw new Error("AI returned empty code evaluation");
+    return JSON.parse(content);
+  } catch (error) {
+    logger.error({ err: error }, "Code evaluation failed");
+    throw error;
+  }
+};

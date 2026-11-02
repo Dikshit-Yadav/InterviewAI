@@ -6,9 +6,71 @@ import {
     type InterviewStartData,
 } from "@/lib/validation";
 import type {
+    ChatMessage,
+    CodingQuestion,
+    CodingEvaluation,
     InterviewHistoryItem,
     InterviewReport,
 } from "@/types/api";
+
+export type SessionStateResponse = {
+    interviewId: string;
+    role: string;
+    experience: string;
+    interviewType: string;
+    technologyScope: string;
+    status: string;
+    startedAt: string;
+    expiresAt: string;
+    remainingSeconds: number;
+    durationMinutes: number;
+    violationCount: number;
+    unprofessionalStrikes?: number;
+    followUpCount?: number;
+    cheatingDetected: boolean;
+    terminationReason: string | null;
+    conversationHistory: ChatMessage[];
+    activeCodingQuestion: CodingQuestion | null;
+};
+
+export type MessageTurnResponse = {
+    turn: {
+        type: "INTERVIEW_QUESTION" | "CODING_QUESTION" | "INTERVIEW_COMPLETE" | "INTERVIEW_REJECTED";
+        questionId: string;
+        question: string;
+        isFollowUp?: boolean;
+        isUnprofessional?: boolean;
+        stage?: string;
+        title?: string;
+        language?: string;
+        timeLimitSeconds?: number;
+        constraints?: string[];
+        examples?: Array<{ input: string; output: string; explanation?: string }>;
+        starterCode?: string;
+        evaluationCriteria?: string[];
+        message?: string;
+    };
+    status: string;
+    terminationReason?: string | null;
+    unprofessionalStrikes?: number;
+    followUpCount?: number;
+    activeCodingQuestion: CodingQuestion | null;
+    conversationHistory: ChatMessage[];
+};
+
+export type CodeSubmissionResponse = {
+    evaluation: CodingEvaluation;
+    followUpQuestion: string;
+    status: string;
+    conversationHistory: ChatMessage[];
+};
+
+export type ViolationResponse = {
+    violationCount: number;
+    cheatingDetected: boolean;
+    terminationReason?: string | null;
+    status: string;
+};
 
 export const interviewService = {
     startInterview: async (data: InterviewStartData) => {
@@ -81,6 +143,37 @@ export const interviewService = {
         }[];
     },
 
+    // Real-time conversational interview methods
+    getSessionState: async (interviewId: string): Promise<SessionStateResponse> => {
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const res = await API.get(`/interview/session/${validatedId}`);
+        return res.data;
+    },
+    sendInterviewMessage: async (
+        interviewId: string,
+        message: string
+    ): Promise<MessageTurnResponse> => {
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const res = await API.post(`/interview/session/${validatedId}/message`, { message });
+        return res.data;
+    },
+    submitCodingSolution: async (
+        interviewId: string,
+        payload: { code: string; language: string; questionId?: string }
+    ): Promise<CodeSubmissionResponse> => {
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const res = await API.post(`/interview/session/${validatedId}/submit-code`, payload);
+        return res.data;
+    },
+    logInterviewViolation: async (
+        interviewId: string,
+        type: "TAB_SWITCH" | "FULLSCREEN_EXIT"
+    ): Promise<ViolationResponse> => {
+        const validatedId = interviewIdSchema.parse(interviewId);
+        const res = await API.post(`/interview/session/${validatedId}/violation`, { type });
+        return res.data;
+    },
+
     // sends ALL answers at once; backend evaluates them with AI and returns the report
     submitInterview: async (
         interviewId: string,
@@ -141,7 +234,7 @@ export const interviewService = {
       sessionStorage.removeItem(`shared-attempt-${attemptId}`);
       return res.data;
     },
-}
+};
 
 const sharedAttemptHeaders = (attemptId: string) => {
     const attemptToken = sessionStorage.getItem(`shared-attempt-${attemptId}`);

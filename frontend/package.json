@@ -11,6 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ant-design/icons": "^5.6.1",
+    "@codemirror/lang-javascript": "^6.2.3",
+    "@codemirror/theme-one-dark": "^6.1.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource-variable/geist": "^5.2.8",
@@ -19,6 +22,8 @@
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@tensorflow/tfjs-converter": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
+    "@uiw/react-codemirror": "^4.23.8",
+    "antd": "^5.24.3",
     "axios": "^1.15.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

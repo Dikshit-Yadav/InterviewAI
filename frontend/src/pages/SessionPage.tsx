@@ -1,22 +1,31 @@
-import { useEffect, useRef, useState } from "react";
-import type { ClipboardEvent, KeyboardEvent } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { AlertTriangle } from "lucide-react";
+import { Modal } from "antd";
+import {
+  ExclamationCircleOutlined,
+  CodeOutlined,
+  PlayCircleOutlined,
+  ShieldCheckOutlined,
+  CheckCircleOutlined,
+} from "@ant-design/icons";
 
-import ProgressHeader from "@/components/session/ProgressHeader";
-import QuestionCard from "@/components/session/QuestionCard";
-import AnswerBox from "@/components/session/AnswerBox";
-import NavigationControls from "@/components/session/NavigationControls";
-import CameraMonitor from "@/components/session/CameraMonitor";
-import CameraPermissionCheck from "@/components/session/CameraPermissionCheck";
+import InterviewHeaderBar from "@/components/session/InterviewHeaderBar";
+import InterviewChat from "@/components/session/InterviewChat";
+import CodingWorkspace from "@/components/session/CodingWorkspace";
+import ViolationWarningModal from "@/components/session/ViolationWarningModal";
+import CheaterDetectedScreen from "@/components/session/CheaterDetectedScreen";
 
 import { interviewService } from "@/services/interviewServices";
-import { answerDraftSchema } from "@/lib/validation";
-import ThemeToggle from "@/components/ui/ThemeToggle";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { getErrorMessage } from "@/lib/apiError";
+import type {
+  ChatMessage,
+  CodingQuestion,
+  CodingEvaluation,
+  InterviewStage,
+} from "@/types/api";
 
 type Question = {
   _id: string;
@@ -26,96 +35,289 @@ type Question = {
   isTechnologyClarification?: boolean;
 };
 
-const draftKey = (interviewId?: string) => `interview-draft-${interviewId}`;
-
-const loadDraft = (interviewId?: string): Record<string, string> => {
-  try {
-    const savedDraft = localStorage.getItem(draftKey(interviewId));
-    if (!savedDraft) return {};
-
-    const validation = answerDraftSchema.safeParse(JSON.parse(savedDraft));
-    if (validation.success) return validation.data;
-
-    console.error("Ignoring invalid saved interview answers", validation.error);
-    localStorage.removeItem(draftKey(interviewId));
-    return {};
-  } catch (error) {
-    console.error("Could not read saved interview answers", error);
-    return {};
-  }
+type ViolationLog = {
+  type: string;
+  timestamp: string | Date;
 };
 
-const preventClipboardAction = (event: ClipboardEvent<HTMLDivElement>) => {
-  event.preventDefault();
-};
-
-const preventClipboardShortcuts = (event: KeyboardEvent<HTMLDivElement>) => {
-  if (
-    (event.ctrlKey || event.metaKey) &&
-    ["c", "v", "x"].includes(event.key.toLowerCase())
-  ) {
-    event.preventDefault();
-  }
-};
+const MAX_VIOLATIONS = 2;
+const TOTAL_INTERVIEW_SECONDS = 30 * 60; // 30 minutes
 
 export default function SessionPage() {
   const navigate = useNavigate();
-  const { interviewId } = useParams();
-  const interviewContainerRef = useRef<HTMLDivElement>(null);
+  const { interviewId } = useParams<{ interviewId: string }>();
 
+  // Core interview state
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>(() =>
-    loadDraft(interviewId),
-  );
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [interviewStarted, setInterviewStarted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [interviewRole, setInterviewRole] = useState("Technical Interview");
+  const [currentStage, setCurrentStage] = useState<InterviewStage>("Introduction");
+
+  // Conversation history
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Coding round state
+  const [activeCodingQuestion, setActiveCodingQuestion] = useState<CodingQuestion | null>(null);
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
+  const [codingEvaluation, setCodingEvaluation] = useState<CodingEvaluation | null>(null);
+
+  // Layout resizing state (draggable columns)
+  const [chatWidthPercent, setChatWidthPercent] = useState(48); // 48% Chat, 52% Code
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  const [isCodeFullWidth, setIsCodeFullWidth] = useState(false);
+
+  // Timer state
+  const [remainingSeconds, setRemainingSeconds] = useState(TOTAL_INTERVIEW_SECONDS);
+
+  // Proctoring & Violations state
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenExited, setFullscreenExited] = useState(false);
-  const [fullscreenError, setFullscreenError] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
-  const [unansweredCount, setUnansweredCount] = useState(0);
+  const [violationCount, setViolationCount] = useState(0);
+  const [cheatingDetected, setCheatingDetected] = useState(false);
+  const [violationLogs, setViolationLogs] = useState<ViolationLog[]>([]);
+  const [warningModalOpen, setWarningModalOpen] = useState(false);
+  const [currentViolationType, setCurrentViolationType] = useState<string>("TAB_SWITCH");
+  const lastViolationTimeRef = useRef<number>(0);
+  const proctoringArmedRef = useRef<boolean>(false);
+  const submissionLockRef = useRef<boolean>(false);
 
-  // Proctoring states
-  const [cameraReady, setCameraReady] = useState(false);
-  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  // Professional Conduct & Strikes state
+  const [unprofessionalStrikes, setUnprofessionalStrikes] = useState(0);
+  const [isTerminatedUnprofessional, setIsTerminatedUnprofessional] = useState(false);
+  const [terminationReason, setTerminationReason] = useState<string | null>(null);
+  const [followUpCount, setFollowUpCount] = useState(0);
 
-  const currentQuestion = questions[currentIndex];
-  const isLastQuestion = currentIndex === questions.length - 1;
-  const answeredCount = questions.filter((q) => answers[q._id]?.trim()).length;
-
+  // Load and hydrate interview session state from backend
   useEffect(() => {
-    if (!interviewId) {
-      console.error("Interview ID missing");
-      return;
-    }
+    if (!interviewId) return;
 
-    const fetchQuestions = async () => {
+    const loadInterview = async () => {
       try {
-        const data = await interviewService.getQuestions(interviewId);
-        setQuestions(data);
+        setLoadingQuestions(true);
+
+        try {
+          const [state, data] = await Promise.all([
+            interviewService.getSessionState(interviewId),
+            interviewService.getQuestions(interviewId).catch(() => []),
+          ]);
+
+          if (Array.isArray(data) && data.length > 0) {
+            setQuestions(data);
+          }
+
+          setInterviewRole(state.role || "Technical Interview");
+          setRemainingSeconds(
+            state.remainingSeconds > 0 ? state.remainingSeconds : TOTAL_INTERVIEW_SECONDS
+          );
+          setViolationCount(state.violationCount || 0);
+          setUnprofessionalStrikes(state.unprofessionalStrikes || 0);
+          setFollowUpCount(state.followUpCount || 0);
+
+          if (state.conversationHistory && state.conversationHistory.length > 0) {
+            setMessages(state.conversationHistory);
+            const lastMsg = state.conversationHistory[state.conversationHistory.length - 1];
+            if (lastMsg.type === "CODING_QUESTION") {
+              setCurrentStage("Coding Round");
+            } else if (lastMsg.isFollowUp) {
+              setCurrentStage("Follow-up");
+            } else if (state.conversationHistory.length > 1) {
+              setCurrentStage("Core Questions");
+            }
+          }
+          if (state.activeCodingQuestion) {
+            setActiveCodingQuestion(state.activeCodingQuestion);
+            setCurrentStage("Coding Round");
+          }
+          if (state.status === "terminated") {
+            if (state.terminationReason === "UNPROFESSIONAL_CONDUCT") {
+              setIsTerminatedUnprofessional(true);
+              setTerminationReason("UNPROFESSIONAL_CONDUCT");
+              setCurrentStage("Completed");
+              if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+                setIsFullscreen(false);
+              }
+            } else {
+              setCheatingDetected(true);
+              setViolationCount(Math.max(2, state.violationCount || 2));
+              return;
+            }
+          } else if (state.cheatingDetected || (state.violationCount || 0) >= MAX_VIOLATIONS) {
+            setCheatingDetected(true);
+            setViolationCount(Math.max(2, state.violationCount || 2));
+            return;
+          }
+          if (state.status === "completed") {
+            navigate(`/report/${interviewId}`);
+            return;
+          }
+        } catch {
+          // Fallback to questions loading
+          const data = await interviewService.getQuestions(interviewId);
+          setQuestions(data);
+          if (data.length > 0) {
+            const firstText = data[0].questionText;
+            const match = firstText.match(/related to (.+?)\./i);
+            if (match && match[1]) {
+              setInterviewRole(match[1]);
+            }
+          }
+        }
       } catch (err) {
-        console.error("Failed to load questions", err);
-        setError("Could not load the questions. Please refresh the page.");
+        console.error("Failed to load interview session:", err);
+        toast.error("Could not load interview session. Please refresh.");
+      } finally {
+        setLoadingQuestions(false);
       }
     };
 
-    fetchQuestions();
-  }, [interviewId]);
+    loadInterview();
+  }, [interviewId, navigate]);
 
+  // Finalize and submit answers, then navigate to report
+  const submitAndRedirect = useCallback(
+    async (reason?: string) => {
+      if (submitting || !interviewId) return;
+      setSubmitting(true);
+
+      try {
+        const validIdRegex = /^[a-f\d]{24}$/i;
+        let candidateAnswers: Array<{ questionId: string; answer: string }> = [];
+
+        if (questions.length > 0) {
+          candidateAnswers = questions.map((q, idx) => {
+            const matched = messages.find(
+              (m) => m.role === "candidate" && (m.questionId === q._id || m.questionId === String(q._id))
+            );
+            const candidateMsgs = messages.filter((m) => m.role === "candidate");
+            const ans = matched?.content || candidateMsgs[idx]?.content || "Assessment concluded.";
+            return {
+              questionId: q._id,
+              answer: ans,
+            };
+          });
+        } else {
+          candidateAnswers = messages
+            .filter((m) => m.role === "candidate" && m.questionId && validIdRegex.test(m.questionId))
+            .map((m) => ({
+              questionId: m.questionId!,
+              answer: m.content,
+            }));
+        }
+
+        if (candidateAnswers.length > 0) {
+          await interviewService.submitInterview(interviewId, candidateAnswers);
+        }
+
+        const queryParams = new URLSearchParams();
+        if (reason) queryParams.set("reason", reason);
+        if (violationCount >= MAX_VIOLATIONS || reason === "tab_switch") {
+          queryParams.set("cheating", "true");
+        }
+
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
+        navigate(`/report/${interviewId}${queryStr}`);
+      } catch (err) {
+        console.error("Submission error:", err);
+        const queryParams = new URLSearchParams();
+        if (reason) queryParams.set("reason", reason);
+        if (violationCount >= MAX_VIOLATIONS || reason === "tab_switch") {
+          queryParams.set("cheating", "true");
+        }
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
+        navigate(`/report/${interviewId}${queryStr}`);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [interviewId, messages, navigate, questions, submitting, violationCount]
+  );
+
+  const handleAutoSubmit = useCallback(
+    async (reason: "timeout" | "tab_switch") => {
+      if (submitting || !interviewId) return;
+      toast.warn(
+        reason === "timeout"
+          ? "Interview duration expired. Finalizing your interview assessment..."
+          : "Proctoring violation recorded.",
+        { autoClose: 3500 }
+      );
+      await submitAndRedirect(reason);
+    },
+    [interviewId, submitAndRedirect, submitting]
+  );
+
+  // Record a proctoring violation (debounced and reported to backend)
+  const recordViolation = useCallback(
+    async (type: "TAB_SWITCH" | "FULLSCREEN_EXIT") => {
+      if (
+        !interviewStarted ||
+        submitting ||
+        submissionLockRef.current ||
+        !interviewId ||
+        cheatingDetected ||
+        isTerminatedUnprofessional
+      )
+        return;
+
+      const now = Date.now();
+      if (now - lastViolationTimeRef.current < 1800) return;
+      lastViolationTimeRef.current = now;
+
+      setCurrentViolationType(type);
+      setViolationLogs((prev) => [...prev, { type, timestamp: new Date() }]);
+
+      try {
+        const res = await interviewService.logInterviewViolation(interviewId, type);
+        const nextCount = res.violationCount;
+        setViolationCount(nextCount);
+
+        if (nextCount === 1) {
+          setWarningModalOpen(true);
+        } else if (nextCount >= MAX_VIOLATIONS || res.cheatingDetected) {
+          submissionLockRef.current = true;
+          setCheatingDetected(true);
+          setWarningModalOpen(false);
+          toast.error("Malpractice detected: 2 security violations recorded. Interview is terminated.", {
+            autoClose: 5000,
+          });
+          // Background sync to ensure report has cheating flags
+          submitAndRedirect("tab_switch").catch(() => {});
+        }
+      } catch {
+        setViolationCount((prev) => {
+          const next = prev + 1;
+          if (next === 1) setWarningModalOpen(true);
+          if (next >= MAX_VIOLATIONS) {
+            submissionLockRef.current = true;
+            setCheatingDetected(true);
+            setWarningModalOpen(false);
+            submitAndRedirect("tab_switch").catch(() => {});
+          }
+          return next;
+        });
+      }
+    },
+    [interviewId, interviewStarted, submitting, cheatingDetected, isTerminatedUnprofessional, submitAndRedirect]
+  );
+
+  // Fullscreen change listener
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const fullscreen =
-        document.fullscreenElement === interviewContainerRef.current ||
-        Boolean(document.fullscreenElement);
-      setIsFullscreen(fullscreen);
-      if (fullscreen) {
-        setFullscreenExited(false);
-        setFullscreenError(null);
-      } else if (interviewStarted) {
-        setFullscreenExited(true);
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+
+      // If user exited fullscreen during active interview, record violation
+      if (
+        !active &&
+        interviewStarted &&
+        proctoringArmedRef.current &&
+        !cheatingDetected &&
+        !isTerminatedUnprofessional
+      ) {
+        recordViolation("FULLSCREEN_EXIT");
       }
     };
 
@@ -123,577 +325,568 @@ export default function SessionPage() {
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
+  }, [interviewStarted, recordViolation, cheatingDetected, isTerminatedUnprofessional]);
+
+  // Overall timer countdown - stops completely if terminated or completed
+  useEffect(() => {
+    if (!interviewStarted || submitting || cheatingDetected || isTerminatedUnprofessional) return;
+
+    const timer = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleAutoSubmit("timeout");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [interviewStarted, submitting, handleAutoSubmit, cheatingDetected, isTerminatedUnprofessional]);
+
+  // Arm proctoring after a grace period once interview begins
+  useEffect(() => {
+    if (!interviewStarted) return;
+
+    const graceTimer = setTimeout(() => {
+      proctoringArmedRef.current = true;
+    }, 2500);
+
+    return () => clearTimeout(graceTimer);
   }, [interviewStarted]);
 
+  // Tab switch detection via visibilitychange and window blur
   useEffect(() => {
-    if (!interviewStarted || submitted) return;
-
-    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", warnBeforeLeaving);
-    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
-  }, [interviewStarted, submitted]);
-
-  const enterFullscreen = async () => {
-    if (!cameraReady && !interviewStarted) {
-      toast.error("Camera permission is required before starting the interview.");
-      return;
-    }
-
-    const container = interviewContainerRef.current || document.documentElement;
-    if (!container?.requestFullscreen) {
-      setFullscreenError("Fullscreen is not supported by this browser.");
-      return;
-    }
-
-    try {
-      await container.requestFullscreen();
-      setIsFullscreen(true);
-      setFullscreenExited(false);
-      setInterviewStarted(true);
-      setFullscreenError(null);
-    } catch (requestError) {
-      console.error("Could not enter interview fullscreen", requestError);
-      setFullscreenError(
-        "Could not enter fullscreen. Allow fullscreen in your browser, or continue without it.",
-      );
-    }
-  };
-
-  const continueWithoutFullscreen = () => {
-    if (!cameraReady && !interviewStarted) {
-      toast.error("Camera permission is required before starting the interview.");
-      return;
-    }
-    setIsFullscreen(false);
-    setInterviewStarted(true);
-    setFullscreenExited(false);
-    setFullscreenError(null);
-  };
-
-  // tab switch monitoring
-  useEffect(() => {
-    if (!interviewStarted || submitted || questions.length === 0) return;
-
-    let armed = false;
-    // grace period to prevent blurs during fullscreen transition
-    const timer = setTimeout(() => {
-      armed = true;
-    }, 1200);
-
-    let lastSwitchTime = 0;
-
-    const handleTabSwitch = () => {
-      if (!armed) return;
-      const now = Date.now();
-      if (now - lastSwitchTime < 1500) return;
-      lastSwitchTime = now;
-
-      setTabSwitchCount((prev) => {
-        const next = prev + 1;
-        if (next >= 3) {
-          toast.error(
-            "Tab switch limit reached (3/3)! Submitting interview automatically...",
-            { autoClose: 5000 },
-          );
-          void handleFinish(true, true);
-          return 3;
-        } else {
-          toast.warn(
-            `Tab switch detected (${next}/3)! Switching tabs 3 times will automatically submit your interview.`,
-            { autoClose: 4000 },
-          );
-          return next;
-        }
-      });
-    };
+    if (!interviewStarted || submitting || cheatingDetected || isTerminatedUnprofessional) return;
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        handleTabSwitch();
+      if (document.hidden && proctoringArmedRef.current) {
+        recordViolation("TAB_SWITCH");
       }
     };
 
     const handleWindowBlur = () => {
-      handleTabSwitch();
+      if (proctoringArmedRef.current) {
+        recordViolation("TAB_SWITCH");
+      }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
 
     return () => {
-      clearTimeout(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [interviewStarted, submitted, questions.length]);
+  }, [interviewStarted, submitting, recordViolation, cheatingDetected, isTerminatedUnprofessional]);
 
-  // keep the draft in localStorage
+  // Anti-Cheating & Malpractice Protection:
+  // 1. Strictly block Copy (Ctrl+C, Cmd+C, copy event) everywhere
+  // 2. Strictly block Paste (Ctrl+V, Cmd+V, paste event) everywhere
+  // 3. Strictly block Cut (Ctrl+X, Cmd+X, cut event)
+  // 4. Block Developer Tools & Inspection (F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U)
+  // 5. Block Context Menu (right click)
+  // 6. Block Drag & Drop of text
   useEffect(() => {
-    if (!interviewId) return;
-    localStorage.setItem(draftKey(interviewId), JSON.stringify(answers));
-  }, [answers, interviewId]);
+    if (!interviewStarted || cheatingDetected) return;
 
-  const handleAnswerChange = (val: string) => {
-    if (!currentQuestion) return;
-
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion._id]: val,
-    }));
-  };
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-    }
-  };
-
-  const handleFinishEarly = () => {
-    if (!currentQuestion || submitting) return;
-
-    setUnansweredCount(
-      questions.filter((question) => !answers[question._id]?.trim()).length,
-    );
-    setShowFinishConfirm(true);
-    setError(null);
-  };
-
-  const handleFinish = async (confirmed = false, autoSubmit = false) => {
-    if (!interviewId || !currentQuestion || submitting) return;
-
-    if (!autoSubmit) {
-      const unanswered = questions.filter(
-        (question) => !answers[question._id]?.trim(),
-      ).length;
-
-      // Final-question submission still requires confirmation when answers are missing.
-      if (unanswered > 0 && !confirmed) {
-        setUnansweredCount(unanswered);
-        setShowFinishConfirm(true);
-        setError(null);
-        return;
+    const handleCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.clipboardData) {
+        e.clipboardData.clearData();
       }
+      toast.warn("Copying is strictly prohibited during the proctored assessment.", {
+        toastId: "copy-blocked",
+      });
+    };
 
-      // Keep existing validation after confirmation.
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.clipboardData) {
+        e.clipboardData.clearData();
+      }
+      toast.warn("Pasting external content is strictly prohibited during the assessment.", {
+        toastId: "paste-blocked",
+      });
+    };
+
+    const handleCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      toast.warn("Cut action is disabled during the assessment.", {
+        toastId: "cut-blocked",
+      });
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F12") {
+        e.preventDefault();
+        toast.warn("Developer tools are prohibited during the technical assessment.");
+      }
       if (
-        questions.some(
-          (question) =>
-            question.isTechnologyClarification && !answers[question._id]?.trim(),
-        )
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "I" || e.key === "i" || e.key === "J" || e.key === "j" || e.key === "U" || e.key === "u")
       ) {
-        setShowFinishConfirm(false);
-        setError(
-          "List the technologies you work with before finishing the interview.",
-        );
-        return;
+        e.preventDefault();
+        toast.warn("Inspection and developer shortcuts are prohibited during the assessment.");
       }
-
-      const introduction = questions.find((question) => question.order === 1);
-
-      if (!answers[introduction?._id ?? ""]?.trim()) {
-        setShowFinishConfirm(false);
-        setError("A brief introduction is required before you finish.");
-        return;
-      }
-    }
-
-    setShowFinishConfirm(false);
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      await interviewService.submitInterview(
-        interviewId,
-        questions.map((question) => ({
-          questionId: question._id,
-          answer: (answers[question._id] ?? "").trim(),
-        })),
-      );
-
-      setSubmitted(true);
-      localStorage.removeItem(draftKey(interviewId));
-      navigate(
-        autoSubmit
-          ? `/report/${interviewId}?reason=tab_switch`
-          : `/report/${interviewId}`,
-      );
-    } catch (err: unknown) {
-      console.error("Could not finish interview", err);
-
-      setError(
-        getErrorMessage(
-          err,
-          "Could not finish the interview. Your answers are saved; please try again.",
-        ),
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleNext = async () => {
-    if (!interviewId || !currentQuestion || submitting) return;
-    if (
-      currentIndex === questions.length - 1 &&
-      !currentQuestion.isTechnologyClarification
-    ) {
-      await handleFinish();
-      return;
-    }
-    const answer = (answers[currentQuestion._id] ?? "").trim();
-    if (currentQuestion.order === 1 && !answer) {
-      setError("A brief introduction is required before you continue.");
-      return;
-    }
-    if (currentQuestion.isTechnologyClarification && !answer) {
-      setError("List the technologies you work with before continuing.");
-      return;
-    }
-    if (currentQuestion.isTechnologyClarification && answer.length > 500) {
-      setError("Your technology list cannot exceed 500 characters.");
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (currentQuestion.isTechnologyClarification) {
-        const scopedQuestions = await interviewService.resolveTechnologies(
-          interviewId,
-          currentQuestion._id,
-          answer,
-        );
-        setQuestions(scopedQuestions);
-        setAnswers((previous) => {
-          const next = { ...previous };
-          delete next[currentQuestion._id];
-          return next;
+      if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        toast.warn("Copying is disabled during this proctored assessment.", {
+          toastId: "copy-blocked",
         });
-        setCurrentIndex(1);
-        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+        e.preventDefault();
+        toast.warn("Pasting external content is prohibited during the assessment.", {
+          toastId: "paste-blocked",
+        });
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("copy", handleCopy, true);
+    document.addEventListener("paste", handlePaste, true);
+    document.addEventListener("cut", handleCut, true);
+    document.addEventListener("contextmenu", handleContextMenu, true);
+    document.addEventListener("dragstart", handleDragStart, true);
+    document.addEventListener("drop", handleDrop, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener("copy", handleCopy, true);
+      document.removeEventListener("paste", handlePaste, true);
+      document.removeEventListener("cut", handleCut, true);
+      document.removeEventListener("contextmenu", handleContextMenu, true);
+      document.removeEventListener("dragstart", handleDragStart, true);
+      document.removeEventListener("drop", handleDrop, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [interviewStarted, cheatingDetected]);
+
+  // Draggable Divider Mouse Listeners
+  useEffect(() => {
+    if (!isDraggingDivider) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const windowWidth = window.innerWidth;
+      const newPercent = (e.clientX / windowWidth) * 100;
+      // Clamp chat width between 25% and 75%
+      setChatWidthPercent(Math.min(75, Math.max(25, newPercent)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingDivider(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDraggingDivider]);
+
+  // Begin Interview button click handler: Enters full screen on documentElement
+  const handleBeginInterview = async () => {
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreen(true);
+    } catch (err) {
+      console.warn("Fullscreen request error:", err);
+    }
+
+    setInterviewStarted(true);
+
+    if (messages.length === 0) {
+      if (questions.length > 0) {
+        const firstQ = questions[0];
+        setMessages([
+          {
+            id: `ai-${firstQ._id}`,
+            role: "ai",
+            type: "INTERVIEW_QUESTION",
+            content: firstQ.questionText,
+            timestamp: new Date(),
+            questionId: firstQ._id,
+          },
+        ]);
+      } else {
+        const defaultIntro = `Welcome to your technical assessment for the role of ${interviewRole}. To start our technical conversation, please give me a brief overview of your background and walk me through a challenging engineering problem you solved recently.`;
+        setMessages([
+          {
+            id: `ai-intro-${Date.now()}`,
+            role: "ai",
+            type: "INTERVIEW_QUESTION",
+            content: defaultIntro,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+      setCurrentStage("Introduction");
+    }
+  };
+
+  const handleToggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (err) {
+        console.error("Fullscreen error:", err);
+      }
+    } else {
+      try {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      } catch (err) {
+        console.error("Exit fullscreen error:", err);
+      }
+    }
+  };
+
+  // Submit candidate answer in chat and receive structured response from AI
+  const handleSendMessage = async (userAnswer: string) => {
+    if (!userAnswer.trim() || isAiGenerating || submitting || !interviewId || isTerminatedUnprofessional) return;
+
+    const tempCandidateMessage: ChatMessage = {
+      id: `ans-${Date.now()}`,
+      role: "candidate",
+      type: "ANSWER",
+      content: userAnswer,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, tempCandidateMessage]);
+    setIsAiGenerating(true);
+
+    try {
+      const res = await interviewService.sendInterviewMessage(interviewId, userAnswer);
+
+      if (res.unprofessionalStrikes !== undefined) {
+        setUnprofessionalStrikes(res.unprofessionalStrikes);
+      }
+      if (res.followUpCount !== undefined) {
+        setFollowUpCount(res.followUpCount);
+      }
+
+      if (res.conversationHistory && res.conversationHistory.length > 0) {
+        setMessages(res.conversationHistory);
       }
 
       if (
-        answer.length >= 30 &&
-        currentQuestion.order !== 1 &&
-        !currentQuestion.followUpToQuestionId
+        res.status === "terminated" ||
+        res.turn.type === "INTERVIEW_REJECTED" ||
+        res.terminationReason === "UNPROFESSIONAL_CONDUCT"
       ) {
-        const result = await interviewService.getAnswerFollowUp(
-          interviewId,
-          currentQuestion._id,
-          answer,
+        setIsTerminatedUnprofessional(true);
+        setTerminationReason(res.terminationReason || "UNPROFESSIONAL_CONDUCT");
+        setCurrentStage("Completed");
+
+        // Immediately stop proctoring and exit fullscreen back to normal window mode
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+          setIsFullscreen(false);
+        }
+
+        toast.error(
+          "Interview concluded: Candidacy rejected due to repeated unprofessional conduct (3/3 warnings).",
+          { autoClose: 8000 }
         );
-        if (result.followUp) {
-          const nextQuestions = questions.some(
-            (question) => question._id === result.followUp?._id,
-          )
-            ? questions
-            : [
-                ...questions.slice(0, currentIndex + 1),
-                result.followUp,
-                ...questions.slice(currentIndex + 1),
-              ];
-          setQuestions(nextQuestions);
-          const followUpIndex = nextQuestions.findIndex(
-            (question) => question._id === result.followUp?._id,
-          );
-          setCurrentIndex(followUpIndex);
-          return;
+        return;
+      }
+
+      if (res.turn.isUnprofessional) {
+        toast.warn(
+          `Professional Conduct Warning (${res.unprofessionalStrikes || 1}/3): Please maintain professional interview conduct.`,
+          { autoClose: 5000 }
+        );
+      }
+
+      if (res.turn.type === "CODING_QUESTION") {
+        const codingPayload: CodingQuestion =
+          res.activeCodingQuestion || {
+            questionId: res.turn.questionId,
+            title: res.turn.title || "Technical Coding Challenge",
+            question: res.turn.question,
+            language: res.turn.language || "javascript",
+            timeLimitSeconds: res.turn.timeLimitSeconds || 1200,
+            constraints: res.turn.constraints || [],
+            examples: res.turn.examples || [],
+            starterCode: res.turn.starterCode || "",
+            evaluationCriteria: res.turn.evaluationCriteria || [],
+          };
+
+        setActiveCodingQuestion(codingPayload);
+        setCurrentStage("Coding Round");
+        toast.info("Coding challenge activated! Solve and submit your solution in the coding editor.", {
+          autoClose: 5000,
+        });
+      } else if (res.turn.type === "INTERVIEW_COMPLETE") {
+        setCurrentStage("Completed");
+        toast.success("All technical interview questions answered! Click 'End' to review your report.", {
+          autoClose: 6000,
+        });
+      } else {
+        if (res.turn.isFollowUp) {
+          setCurrentStage("Follow-up");
+        } else {
+          setCurrentStage("Core Questions");
         }
       }
-
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex((index) => index + 1);
-      }
-    } catch (err: unknown) {
-      console.error("Could not continue interview", err);
-      setError(
-        getErrorMessage(
-          err,
-          "Could not continue the interview. Your answer is saved; please try again.",
-        ),
-      );
+    } catch (err) {
+      console.error("Error communicating with AI interviewer:", err);
+      toast.error(getErrorMessage(err, "Could not reach AI interviewer. Please try sending again."));
     } finally {
-      setSubmitting(false);
+      setIsAiGenerating(false);
     }
   };
 
-  if (!questions.length) {
-    if (error) {
-      return (
-        <div
-          className="grid min-h-screen place-items-center bg-background px-6 text-center text-error"
-          role="alert"
-        >
-          {error}
-        </div>
-      );
+  // Submit candidate code from Coding Workspace
+  const handleSubmitCode = async (code: string, language: string) => {
+    if (!activeCodingQuestion || isSubmittingCode || !interviewId) return;
+    setIsSubmittingCode(true);
+
+    try {
+      const res = await interviewService.submitCodingSolution(interviewId, {
+        code,
+        language,
+        questionId: activeCodingQuestion.questionId,
+      });
+
+      if (res.evaluation) {
+        setCodingEvaluation(res.evaluation);
+      }
+
+      if (res.conversationHistory) {
+        setMessages(res.conversationHistory);
+      }
+
+      toast.success("Code solution evaluated! Review the AI feedback rubric and discuss in chat.", {
+        autoClose: 5000,
+      });
+    } catch (err) {
+      console.error("Code submission error:", err);
+      toast.error(getErrorMessage(err, "Could not evaluate code solution. Please try again."));
+    } finally {
+      setIsSubmittingCode(false);
     }
-    return <PageSkeleton page="session" />;
+  };
+
+  // Finish interview modal confirm
+  const handleFinishInterview = async () => {
+    if (submitting || !interviewId) return;
+
+    Modal.confirm({
+      title: "Finish Technical Assessment?",
+      icon: <ExclamationCircleOutlined />,
+      content: "Are you sure you want to finish the interview and generate your performance report?",
+      okText: "Yes, Finish Assessment",
+      cancelText: "Continue Answering",
+      okButtonProps: { className: "bg-brand text-primary-foreground font-semibold" },
+      onOk: async () => {
+        await submitAndRedirect();
+      },
+    });
+  };
+
+  if (loadingQuestions) {
+    return <PageSkeleton page="dashboard" />;
   }
 
+  // 1. CHEATER DETECTED TERMINATION SCREEN
+  if (cheatingDetected || violationCount >= MAX_VIOLATIONS) {
+    return (
+      <CheaterDetectedScreen
+        role={interviewRole}
+        violations={violationLogs}
+        onNavigateHome={() => navigate("/dashboard")}
+      />
+    );
+  }
+
+  // 2. BEGIN INTERVIEW READINESS SCREEN (Matching website theme)
+  if (!interviewStarted) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background px-4 py-8 text-foreground select-none">
+        <ToastContainer position="top-right" theme="dark" />
+        <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-primary-foreground shadow-sm mb-2">
+              <CodeOutlined className="text-2xl" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Technical Assessment Readiness
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Candidate: <strong className="text-foreground">{interviewRole}</strong>
+            </p>
+          </div>
+
+          {/* Assessment Guidelines */}
+          <div className="rounded-xl border border-border bg-surface p-4 space-y-3 text-xs leading-relaxed text-foreground">
+            <h3 className="font-semibold text-foreground flex items-center gap-1.5">
+              <ShieldCheckOutlined className="text-brand text-sm" />
+              Proctoring &amp; Assessment Guidelines
+            </h3>
+            <ul className="space-y-2 list-none pl-0">
+              <li className="flex items-start gap-2">
+                <CheckCircleOutlined className="text-brand mt-0.5 shrink-0" />
+                <span><strong>Full-Screen Mode:</strong> Clicking "Begin Interview" automatically requests full-screen. Exiting full-screen is monitored.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircleOutlined className="text-brand mt-0.5 shrink-0" />
+                <span><strong>Tab Switch Policy:</strong> Maximum 2 security warnings. The 1st is an alert; the 2nd terminates the assessment immediately.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircleOutlined className="text-brand mt-0.5 shrink-0" />
+                <span><strong>Dynamic Coding Workspace:</strong> When practical coding is assigned, the resizable code editor opens on the right.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircleOutlined className="text-brand mt-0.5 shrink-0" />
+                <span><strong>Input Options:</strong> You may type your responses or use speech-to-text with your microphone.</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Prominent Begin Button */}
+          <button
+            onClick={handleBeginInterview}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand hover:bg-brand-hover text-primary-foreground py-3.5 text-base font-semibold shadow-md transition-all cursor-pointer"
+          >
+            <PlayCircleOutlined className="text-lg" />
+            <span>Begin Interview</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. ACTIVE TWO-COLUMN FULLSCREEN INTERVIEW LAYOUT
   return (
     <div
-      ref={interviewContainerRef}
-      className="min-h-screen w-full overflow-x-hidden bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10"
-      onCopy={preventClipboardAction}
-      onCut={preventClipboardAction}
-      onPaste={preventClipboardAction}
-      onContextMenu={(event) => event.preventDefault()}
-      onKeyDown={preventClipboardShortcuts}
+      onContextMenu={(e) => e.preventDefault()}
+      className="flex h-screen w-screen flex-col overflow-hidden bg-background font-sans text-foreground select-none"
     >
-      <ToastContainer position="top-right" autoClose={3500} />
+      <ToastContainer position="top-right" theme="dark" />
 
-      <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
-        <div className="flex justify-end">
-          <ThemeToggle />
-        </div>
+      {/* Top Header Bar */}
+      <InterviewHeaderBar
+        role={interviewRole}
+        stage={currentStage}
+        remainingSeconds={remainingSeconds}
+        violationCount={violationCount}
+        maxViolations={MAX_VIOLATIONS}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
+        onFinishInterview={handleFinishInterview}
+        isSubmitting={submitting}
+      />
 
-        {interviewStarted && !submitted && (
-          <CameraMonitor tabSwitchCount={tabSwitchCount} maxTabSwitches={3} />
+      {/* Main Two-Column Resizable Workspace */}
+      <main className="flex flex-1 overflow-hidden relative">
+        {/* Column 1: AI Interview Chat */}
+        <section
+          style={{
+            width: isCodeFullWidth
+              ? "0%"
+              : activeCodingQuestion
+              ? `${chatWidthPercent}%`
+              : "100%",
+          }}
+          className={`flex flex-col overflow-hidden transition-[width] duration-75 ${
+            isCodeFullWidth ? "hidden" : "flex"
+          } ${!activeCodingQuestion ? "max-w-4xl mx-auto" : ""}`}
+        >
+          <InterviewChat
+            messages={messages}
+            isAiGenerating={isAiGenerating}
+            onSendMessage={handleSendMessage}
+            hasActiveCodingQuestion={Boolean(activeCodingQuestion)}
+            onOpenCodingWorkspace={() => setIsCodeFullWidth(true)}
+            isTerminated={isTerminatedUnprofessional}
+            terminationReason={terminationReason}
+            unprofessionalStrikes={unprofessionalStrikes}
+            onEndAssessment={handleFinishInterview}
+          />
+        </section>
+
+        {/* Draggable Divider Bar (visible when coding question is active and not full-width) */}
+        {activeCodingQuestion && !isCodeFullWidth && (
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsDraggingDivider(true);
+            }}
+            className={`w-1.5 hover:w-2 bg-border hover:bg-brand cursor-col-resize select-none transition-all flex items-center justify-center group z-20 ${
+              isDraggingDivider ? "w-2 bg-brand" : ""
+            }`}
+            title="Drag to resize chat and coding workspace"
+          >
+            <div className="h-8 w-1 rounded-full bg-border-strong group-hover:bg-primary-foreground" />
+          </div>
         )}
 
-        {/* proctoring info bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                tabSwitchCount === 0
-                  ? "bg-emerald-500"
-                  : tabSwitchCount === 1
-                  ? "bg-amber-500"
-                  : "bg-red-500 animate-pulse"
-              }`}
-            />
-            <span className="text-xs sm:text-sm font-medium">
-              Tab Switches:{" "}
-              <strong
-                className={
-                  tabSwitchCount === 0
-                    ? "text-emerald-500"
-                    : tabSwitchCount === 1
-                    ? "text-amber-500"
-                    : "text-red-500 font-bold"
-                }
-              >
-                {tabSwitchCount} / 3
-              </strong>
-            </span>
-          </div>
-          <span className="text-xs text-secondary">
-            {tabSwitchCount === 0
-              ? "Proctoring active: 3 tab switches will auto-submit"
-              : `${3 - tabSwitchCount} switch${3 - tabSwitchCount === 1 ? "" : "es"} remaining before auto-submit`}
-          </span>
-        </div>
+        {/* Column 2: Dynamic Coding Workspace */}
+        <section
+          style={{
+            width: isCodeFullWidth
+              ? "100%"
+              : activeCodingQuestion
+              ? `${100 - chatWidthPercent}%`
+              : "0%",
+          }}
+          className={`flex flex-col overflow-hidden transition-[width] duration-75 ${
+            activeCodingQuestion || isCodeFullWidth ? "flex" : "hidden"
+          }`}
+        >
+          <CodingWorkspace
+            codingQuestion={activeCodingQuestion}
+            onSubmitCode={handleSubmitCode}
+            isSubmitting={isSubmittingCode}
+            evaluationResult={codingEvaluation}
+            isFullWidth={isCodeFullWidth}
+            isTerminated={isTerminatedUnprofessional}
+            onToggleFullWidth={() => setIsCodeFullWidth((prev) => !prev)}
+          />
+        </section>
+      </main>
 
-        {tabSwitchCount > 0 && (
-          <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs sm:text-sm text-amber-600 dark:text-amber-400">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>Warning:</strong> Tab switch detected ({tabSwitchCount}/3). Exceeding 3 tab switches will submit your interview automatically.
-              </span>
-            </div>
-          </div>
-        )}
-
-        <ProgressHeader
-          current={currentIndex + 1}
-          total={questions.length}
-          answered={answeredCount}
-          timeLeft=""
-        />
-
-        <QuestionCard
-          category={
-            currentQuestion.followUpToQuestionId
-              ? "Follow-up"
-              : currentQuestion.order === 1
-                ? "Introduction"
-                : currentQuestion.isTechnologyClarification
-                  ? "Technology selection"
-                  : "Interview question"
+      {/* Proctoring Warning Modal (1st violation) */}
+      <ViolationWarningModal
+        open={warningModalOpen}
+        violationType={currentViolationType}
+        violationCount={violationCount}
+        maxViolations={MAX_VIOLATIONS}
+        onAcknowledge={async () => {
+          setWarningModalOpen(false);
+          if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen().catch(() => {});
           }
-          difficulty="Based on your level"
-          question={currentQuestion.questionText}
-        />
-
-        <AnswerBox
-          key={currentQuestion._id}
-          value={answers[currentQuestion._id] || ""}
-          onChange={handleAnswerChange}
-        />
-
-        {currentQuestion.order === 1 && (
-          <p className="text-sm text-secondary">
-            A brief introduction is required to continue.
-          </p>
-        )}
-        {currentQuestion.isTechnologyClarification && (
-          <p className="text-sm text-secondary">
-            List the technologies you work with, separated by commas. The
-            remaining questions will focus only on those technologies (up to 500
-            characters).
-          </p>
-        )}
-        {error && <p className="text-sm text-error">{error}</p>}
-        {submitting && (
-          <p className="text-sm text-gray-400">
-            Preparing your next question or report...
-          </p>
-        )}
-
-        <NavigationControls
-          onPrev={handlePrev}
-          onNext={handleNext}
-          onFinish={handleFinishEarly}
-          isLast={isLastQuestion}
-          disablePrev={currentIndex === 0}
-          submitting={submitting}
-        />
-      </div>
-
-      {(!interviewStarted || (fullscreenExited && !isFullscreen)) && (
-        <div className="fixed inset-0 z-[1000] grid place-items-center bg-background/95 backdrop-blur-sm px-6">
-          <section
-            className="w-full max-w-lg space-y-5 rounded-2xl border border-border bg-surface p-8 text-center shadow-xl"
-            aria-labelledby="fullscreen-title"
-          >
-            <h1 id="fullscreen-title" className="text-2xl font-semibold">
-              {interviewStarted
-                ? "Return to your interview"
-                : "Ready to begin?"}
-            </h1>
-            <p className="text-secondary text-sm">
-              {interviewStarted
-                ? "The interview is paused while fullscreen is off. Re-enter fullscreen to continue."
-                : "Your interview will open in fullscreen. Your answers are saved as you go."}
-            </p>
-
-            {/* Camera permission check before test starts  */}
-            {!interviewStarted && (
-              <CameraPermissionCheck
-                onReadyChange={setCameraReady}
-                title="Camera Verification"
-                description="Camera access is required for proctoring. Please grant permission and ensure your camera is working before starting."
-              />
-            )}
-
-            {!interviewStarted && (
-              <div className="rounded-lg border border-border bg-surface-hover/50 p-3 text-left text-xs text-100 space-y-1">
-                <p className="font-medium text-foreground">Proctoring Notice:</p>
-                <ul className="list-disc pl-4 space-y-0.5">
-                  <li>Full screen is required during the session.</li>
-                  <li>Camera feed is active during the test.</li>
-                  <li>
-                    Maximum <strong>3 tab switches</strong> permitted before automatic submission.
-                  </li>
-                </ul>
-              </div>
-            )}
-
-            {fullscreenError && (
-              <p className="text-sm text-error" role="alert">
-                {fullscreenError}
-              </p>
-            )}
-
-            <div className="flex flex-col justify-center gap-3 sm:flex-row">
-              <button
-                type="button"
-                disabled={!interviewStarted && !cameraReady}
-                onClick={enterFullscreen}
-                className="rounded-md bg-brand px-5 py-2.5 font-medium text-primary-foreground hover:bg-brand-hover disabled:opacity-50 transition-opacity"
-              >
-                {interviewStarted
-                  ? "Resume fullscreen"
-                  : !cameraReady
-                    ? "Allow camera access to begin"
-                    : "Begin in fullscreen"}
-              </button>
-              {!interviewStarted && fullscreenError && (
-                <button
-                  type="button"
-                  disabled={!cameraReady}
-                  onClick={continueWithoutFullscreen}
-                  className="rounded-md border border-border px-5 py-2.5 font-medium hover:bg-surface-hover disabled:opacity-50"
-                >
-                  Continue without fullscreen
-                </button>
-              )}
-            </div>
-            {interviewStarted && (
-              <p className="text-xs text-secondary">
-                You can leave fullscreen with your browser controls. The
-                interview will remain paused until you resume it.
-              </p>
-            )}
-          </section>
-        </div>
-      )}
-
-      {showFinishConfirm && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4">
-          <section
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="finish-confirm-title"
-            aria-describedby="finish-confirm-description"
-            className="w-full max-w-md space-y-5 rounded-2xl border border-border bg-surface p-6 shadow-2xl"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
-                <span className="text-xl" aria-hidden="true">
-                  !
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <h2 id="finish-confirm-title" className="text-xl font-semibold">
-                  Finish interview?
-                </h2>
-
-                <p
-                  id="finish-confirm-description"
-                  className="text-sm leading-6 text-100"
-                >
-                  {unansweredCount > 0
-                    ? `${unansweredCount} ${
-                        unansweredCount === 1 ? "question is" : "questions are"
-                      } unanswered and will score 0. If you finish now, your interview report will be generated.`
-                    : "You have answered every question. If you finish now, your interview report will be generated."}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setShowFinishConfirm(false)}
-                className="rounded-lg border border-border px-4 py-2.5 font-medium hover:bg-surface-hover"
-              >
-                Continue interview
-              </button>
-
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => {
-                  void handleFinish(true);
-                }}
-                className="rounded-lg bg-brand px-4 py-2.5 font-medium text-primary-foreground hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? "Generating report..." : "Finish interview"}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+        }}
+      />
     </div>
   );
 }

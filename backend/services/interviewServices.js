@@ -12,6 +12,8 @@ import {
     evaluateAllAnswers,
     generateFinalReportAI,
     generateConfiguredQuestions,
+    generateStructuredInterviewTurn,
+    evaluateCodeRubricAI,
 } from "./aiService.js";
 
 const httpError = (status, message) =>
@@ -59,6 +61,7 @@ export const createInterviewSession = async (
         interviewType,
         technologyScope: normalizedTechnologyScope,
         requiresTechnologyScope: !normalizedTechnologyScope,
+        status: "started",
     });
 
     try {
@@ -116,7 +119,7 @@ export const resolveInterviewTechnologyScope = async (
     technologies
 ) => {
     const session = await assertInterviewOwner(userId, interviewId);
-    if (session.status !== "started") {
+    if (session.status !== "started" && session.status !== "in_progress") {
         throw httpError(400, "This interview has already been completed");
     }
 
@@ -142,7 +145,6 @@ export const resolveInterviewTechnologyScope = async (
     const reserved = await InterviewSession.findOneAndUpdate(
         {
             _id: session._id,
-            status: "started",
             requiresTechnologyScope: true,
             technologyScopeGenerating: { $ne: true },
         },
@@ -228,6 +230,7 @@ export const createResumeInterviewSession = async (
         role: generated.role,
         experience,
         interviewType,
+        status: "started",
     });
 
     try {
@@ -251,7 +254,7 @@ export const createResumeInterviewSession = async (
 
 export const createFollowUpQuestion = async (userId, interviewId, questionId, answer) => {
     const session = await assertInterviewOwner(userId, interviewId);
-    if (session.status === "completed") {
+    if (session.status === "completed" || session.status === "terminated") {
         throw httpError(400, "This interview has already been completed");
     }
 
@@ -274,7 +277,6 @@ export const createFollowUpQuestion = async (userId, interviewId, questionId, an
     const reserved = await InterviewSession.findOneAndUpdate(
         {
             _id: session._id,
-            status: "started",
             $or: [
                 { followUpCount: { $lt: MAX_FOLLOW_UP_QUESTIONS } },
                 { followUpCount: { $exists: false } },
@@ -334,7 +336,6 @@ export const createFollowUpQuestion = async (userId, interviewId, questionId, an
         throw error;
     }
 };
-
 
 export const fetchInterviewQuestions = async (interviewId) => {
     const questions = await Question.find({ interviewId }).sort({ order: 1 });
@@ -399,6 +400,7 @@ export const joinInterviewTemplate = async (shareToken, candidateName) => {
         attemptTokenHash: sha256(attemptToken),
         startedAt,
         expiresAt,
+        durationMinutes: template.durationMinutes,
         status: "started",
     });
 
@@ -462,7 +464,9 @@ export const fetchSharedInterviewQuestions = async (attemptId, attemptToken) => 
 
 export const createSharedFollowUpQuestion = async (attemptId, attemptToken, questionId, answer) => {
     const session = await assertSharedAttempt(attemptId, attemptToken);
-    if (session.status !== "started") throw httpError(400, "This interview is no longer active");
+    if (session.status !== "started" && session.status !== "in_progress") {
+        throw httpError(400, "This interview is no longer active");
+    }
 
     const question = await Question.findOne({ _id: questionId, interviewId: attemptId });
     if (!question) throw httpError(404, "Question not found for this interview");
@@ -474,7 +478,7 @@ export const createSharedFollowUpQuestion = async (attemptId, attemptToken, ques
     if (questionCount >= (maxQuestions?.questionCount || 50) + 4) return null;
 
     const reserved = await InterviewSession.findOneAndUpdate(
-        { _id: session._id, status: "started", followUpCount: { $lt: 4 } },
+        { _id: session._id, followUpCount: { $lt: 4 } },
         { $inc: { followUpCount: 1 } },
         { new: true }
     );
@@ -505,7 +509,7 @@ export const createSharedFollowUpQuestion = async (attemptId, attemptToken, ques
 
 export const submitSharedInterviewService = async (attemptId, attemptToken, answers) => {
     const session = await assertSharedAttempt(attemptId, attemptToken);
-    if (session.status !== "started") {
+    if (session.status !== "started" && session.status !== "in_progress") {
         if (session.status === "completed") return generateReportService(attemptId);
         throw httpError(409, "The interview time has ended");
     }
@@ -541,7 +545,6 @@ export const submitSharedInterviewService = async (attemptId, attemptToken, answ
     return report;
 };
 
-
 export const generateReportService = async (interviewId) => {
     const answers = await Answer.find({ interviewId })
         .populate("questionId")
@@ -571,6 +574,34 @@ export const generateReportService = async (interviewId) => {
     }));
 
     const aiReport = await generateFinalReportAI(formattedAnswers);
+    const session = await InterviewSession.findById(interviewId);
+
+    // Calculate multi-criteria scoring including coding performance
+    const codingSubmissions = session?.codingSubmissions || [];
+    const validEvaluations = codingSubmissions.map((s) => s.evaluation).filter(Boolean);
+    let codingPerformance = 0;
+    let codeQuality = 0;
+
+    if (validEvaluations.length > 0) {
+        const sumScore = validEvaluations.reduce((acc, curr) => acc + (curr.score || 0), 0);
+        codingPerformance = Math.round(sumScore / validEvaluations.length);
+        const sumQuality = validEvaluations.reduce((acc, curr) => acc + (curr.codeQuality?.score || 0), 0);
+        codeQuality = Math.round(sumQuality / validEvaluations.length);
+    }
+
+    const techScaled = Math.round((aiReport.techScore || 0) * 10);
+    const clarityScaled = Math.round((aiReport.clarityScore || 0) * 10);
+    const confidenceScaled = Math.round((aiReport.confidenceScore || 0) * 10);
+
+    let overallScore = Math.round(averageScore * 10);
+    if (validEvaluations.length > 0) {
+        overallScore = Math.round((overallScore * 0.5) + (codingPerformance * 0.3) + (techScaled * 0.2));
+    }
+
+    // Proctoring check penalty if cheating detected
+    if (session?.cheatingDetected) {
+        overallScore = Math.min(overallScore, 40);
+    }
 
     const report = await Report.create({
         interviewId,
@@ -582,31 +613,43 @@ export const generateReportService = async (interviewId) => {
         clarityScore: aiReport.clarityScore,
         confidenceScore: aiReport.confidenceScore,
 
+        // Upgraded composite scores
+        overallScore,
+        technicalKnowledge: techScaled,
+        communication: clarityScaled,
+        problemSolving: confidenceScaled,
+        codingPerformance,
+        codeQuality,
+
         summary: aiReport.summary,
+        finalFeedback: aiReport.summary,
 
-        strongTopics: aiReport.strongTopics,
-        weakTopics: aiReport.weakTopics,
+        strongTopics: aiReport.strongTopics || [],
+        weakTopics: aiReport.weakTopics || [],
+        strengths: aiReport.strongTopics || [],
+        weaknesses: aiReport.weakTopics || [],
+        recommendations: aiReport.tips || [],
 
-        learningPath: aiReport.learningPath,
-        tips: aiReport.tips,
+        learningPath: aiReport.learningPath || [],
+        tips: aiReport.tips || [],
 
         answers: formattedAnswers,
+
+        // Proctoring and security evaluation data
+        cheatingDetected: session?.cheatingDetected || false,
+        violationCount: session?.violationCount || 0,
+        violations: session?.violations || [],
+        interviewStatus: session?.status || "completed",
+        terminationReason: session?.terminationReason || null,
+        codingEvaluations: validEvaluations,
     });
 
     return report;
 };
 
-// Receives ALL answers at once, evaluates them with the AI in one call,
-// saves them, builds the final report and marks the interview completed.
-// answers: [{ questionId, answer }]
 export const submitInterviewService = async (userId, interviewId, answers) => {
-    if (!Array.isArray(answers) || !answers.length) {
-        throw httpError(400, "Answers are required");
-    }
-
     const session = await assertInterviewOwner(userId, interviewId);
 
-    // double-click / retry after success: just return the finished report
     if (session.status === "completed") {
         return generateReportService(interviewId);
     }
@@ -614,65 +657,462 @@ export const submitInterviewService = async (userId, interviewId, answers) => {
         throw httpError(400, "Answer the technology question before finishing the interview");
     }
 
-    const questions = await Question.find({ interviewId }).sort({ order: 1 });
-    if (!questions.length) throw httpError(404, "No questions found for this interview");
+    let questions = await Question.find({ interviewId }).sort({ order: 1 });
+    if (!questions.length) {
+        const aiQuestions = (session.conversationHistory || []).filter(
+            (m) => m.role === "ai" && (m.type === "INTERVIEW_QUESTION" || m.type === "CODING_QUESTION")
+        );
+        if (aiQuestions.length > 0) {
+            const dynamicDocs = aiQuestions.map((q, idx) => ({
+                interviewId,
+                questionText: q.content,
+                order: idx + 1,
+            }));
+            questions = await Question.insertMany(dynamicDocs);
+        } else {
+            const fallbackDoc = await Question.create({
+                interviewId,
+                questionText: `Technical assessment for ${session.role}`,
+                order: 1,
+            });
+            questions = [fallbackDoc];
+        }
+    }
 
-    // only trust question ids that really belong to this interview
-    const answerByQuestion = new Map(
-        answers.map((a) => [
-            String(a?.questionId),
-            typeof a?.answer === "string" ? a.answer.trim() : "",
-        ])
-    );
+    const candidateChatMessages = (session.conversationHistory || [])
+        .filter((m) => m.role === "candidate" && (m.type === "ANSWER" || m.type === "CODE_SUBMISSION"));
 
-    const rows = questions.map((q) => ({
-        question: q,
-        answer: answerByQuestion.get(String(q._id)) || "",
-    }));
+    const answerByQuestion = new Map();
+    if (Array.isArray(answers)) {
+        answers.forEach((a) => {
+            if (a?.questionId) {
+                answerByQuestion.set(String(a.questionId), typeof a.answer === "string" ? a.answer.trim() : "");
+            }
+        });
+    }
 
-    if (!rows[0]?.answer) {
+    const isEarlyExit =
+        session.status === "terminated" ||
+        (session.violationCount || 0) >= 2 ||
+        session.status === "expired" ||
+        session.cheatingDetected;
+
+    const rows = questions.map((q, idx) => {
+        let answer = answerByQuestion.get(String(q._id)) || "";
+        if (!answer && candidateChatMessages[idx]?.content) {
+            answer = candidateChatMessages[idx].content;
+        }
+        return {
+            question: q,
+            answer: answer || "",
+        };
+    });
+
+    if (!rows[0]?.answer && !isEarlyExit) {
         throw httpError(400, "Please answer the required brief introduction before finishing");
     }
 
-    const answered = rows.filter((r) => r.answer);
-    if (!answered.length) {
-        throw httpError(400, "Answer at least one question before submitting");
-    }
+    const answered = rows.filter((r) => r.answer && r.answer.trim());
+    let evaluations = [];
 
-    // 1 AI call for every answered question (skipped ones are not sent)
-    const evaluations = await evaluateAllAnswers(
-        {
-            role: session.role,
-            experience: session.experience,
-            interviewType: session.interviewType,
-        },
-        answered.map((r) => ({ question: r.question.questionText, answer: r.answer }))
-    );
+    if (answered.length > 0) {
+        evaluations = await evaluateAllAnswers(
+            {
+                role: session.role,
+                experience: session.experience,
+                interviewType: session.interviewType,
+            },
+            answered.map((r) => ({ question: r.question.questionText, answer: r.answer }))
+        );
+    }
 
     let next = 0;
     const docs = rows.map((r) => {
-        const evaluation = r.answer
-            ? evaluations[next++]
-            : { score: 0, strengths: "", weaknesses: "No answer was provided.", correctAnswer: "" };
+        const hasAns = Boolean(r.answer && r.answer.trim());
+        const evaluation = hasAns
+            ? evaluations[next++] || { score: 50, strengths: "Answer submitted", weaknesses: "", correctAnswer: "" }
+            : {
+                score: 0,
+                strengths: "N/A",
+                weaknesses: isEarlyExit ? "Not Attempted (assessment terminated early)." : "No answer was provided.",
+                correctAnswer: ""
+              };
 
         return {
             questionId: r.question._id,
             interviewId,
-            userAnswer: r.answer || "(No answer provided)",
+            userAnswer: r.answer || (isEarlyExit ? "(Not Attempted)" : "(No answer provided)"),
             aiEvaluation: evaluation,
-            skill: r.answer ? evaluation.skill : undefined,
+            skill: hasAns ? evaluation.skill : undefined,
         };
     });
 
-    // replace anything from an earlier failed attempt so a retry is safe
     await Answer.deleteMany({ interviewId });
     await Report.deleteMany({ interviewId });
     await Answer.insertMany(docs);
 
     const report = await generateReportService(interviewId);
 
-    session.status = "completed";
+    if (session.status !== "terminated") {
+        session.status = "completed";
+    }
+    session.submittedAt = new Date();
     await session.save();
 
     return report;
+};
+
+// ==========================================
+// REAL-TIME CONVERSATIONAL INTERVIEW SERVICES
+// ==========================================
+
+export const getInterviewSessionState = async (userId, interviewId) => {
+    const session = await assertInterviewOwner(userId, interviewId);
+
+    // Initialize timers if not set
+    if (!session.startedAt) {
+        session.startedAt = new Date();
+        session.durationMinutes = session.durationMinutes || 30;
+        session.expiresAt = new Date(session.startedAt.getTime() + session.durationMinutes * 60 * 1000);
+        if (session.status === "not_started" || session.status === "started") {
+            session.status = "in_progress";
+        }
+    }
+
+    // Initialize conversation history dynamically if empty
+    if (!session.conversationHistory || session.conversationHistory.length === 0) {
+        const questions = await Question.find({ interviewId }).sort({ order: 1 });
+        let openingQuestionText = "";
+        let qId = "";
+
+        if (questions.length > 0) {
+            openingQuestionText = questions[0].questionText;
+            qId = String(questions[0]._id);
+        } else {
+            openingQuestionText = `Welcome to your technical assessment for the role of ${session.role} (${session.experience} level). To start our technical discussion, please give me a brief overview of your background and walk me through a challenging technical problem you solved recently in your projects.`;
+            qId = crypto.randomUUID();
+            await Question.create({
+                interviewId,
+                questionText: openingQuestionText,
+                order: 1,
+            }).catch(() => {});
+        }
+
+        session.conversationHistory = [
+            {
+                id: `ai-${qId}`,
+                role: "ai",
+                type: "INTERVIEW_QUESTION",
+                content: openingQuestionText,
+                questionId: qId,
+                isFollowUp: false,
+                timestamp: new Date(),
+            },
+        ];
+    }
+
+    await session.save();
+
+    const now = Date.now();
+    const expiresAtMs = session.expiresAt
+        ? new Date(session.expiresAt).getTime()
+        : now + 30 * 60 * 1000;
+    const remainingSeconds = Math.max(0, Math.floor((expiresAtMs - now) / 1000));
+
+    if (remainingSeconds === 0 && session.status !== "completed" && session.status !== "terminated") {
+        session.status = "expired";
+        await session.save();
+    }
+
+    return {
+        interviewId: session._id,
+        role: session.role,
+        experience: session.experience,
+        interviewType: session.interviewType,
+        technologyScope: session.technologyScope,
+        status: session.status,
+        startedAt: session.startedAt,
+        expiresAt: session.expiresAt,
+        remainingSeconds,
+        durationMinutes: session.durationMinutes,
+        violationCount: session.violationCount || 0,
+        unprofessionalStrikes: session.unprofessionalStrikes || 0,
+        followUpCount: session.followUpCount || 0,
+        cheatingDetected: session.cheatingDetected || false,
+        terminationReason: session.terminationReason || null,
+        conversationHistory: session.conversationHistory || [],
+        activeCodingQuestion: session.activeCodingQuestion || null,
+    };
+};
+
+export const processInterviewMessage = async (userId, interviewId, messageText) => {
+    const session = await assertInterviewOwner(userId, interviewId);
+
+    if (session.status === "completed" || session.status === "terminated" || session.status === "expired") {
+        throw httpError(400, `Interview is already ${session.status}`);
+    }
+    if (session.violationCount >= 2) {
+        throw httpError(403, "Interview terminated due to exceeding violation limits");
+    }
+    if (session.unprofessionalStrikes >= 3) {
+        throw httpError(403, "Interview terminated due to repeated unprofessional conduct");
+    }
+    if (session.expiresAt && Date.now() > new Date(session.expiresAt).getTime()) {
+        session.status = "expired";
+        await session.save();
+        throw httpError(400, "Interview duration has expired. Please view your report.");
+    }
+
+    // 1. Add candidate answer to conversation history
+    const candidateMessage = {
+        id: `ans-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+        role: "candidate",
+        type: "ANSWER",
+        content: messageText.trim(),
+        timestamp: new Date(),
+    };
+
+    session.conversationHistory.push(candidateMessage);
+
+    // 2. Call AI to generate next structured turn
+    const structuredTurn = await generateStructuredInterviewTurn({
+        role: session.role,
+        experience: session.experience,
+        interviewType: session.interviewType,
+        technologyScope: session.technologyScope,
+        conversationHistory: session.conversationHistory,
+        codingQuestionsCount: session.codingQuestions ? session.codingQuestions.length : 0,
+        candidateAnswer: messageText.trim(),
+        unprofessionalStrikes: session.unprofessionalStrikes || 0,
+        followUpCount: session.followUpCount || 0,
+    });
+
+    // Check for unprofessional behavior detection
+    if (structuredTurn.isUnprofessional) {
+        session.unprofessionalStrikes = (session.unprofessionalStrikes || 0) + 1;
+    }
+
+    // If 3 strikes reached or AI issued termination rejection
+    if (session.unprofessionalStrikes >= 3 || structuredTurn.type === "INTERVIEW_REJECTED") {
+        session.status = "terminated";
+        session.terminationReason = "UNPROFESSIONAL_CONDUCT";
+        session.submittedAt = new Date();
+
+        const rejectionMessage = {
+            id: `ai-rejection-${Date.now()}`,
+            role: "ai",
+            type: "INTERVIEW_REJECTED",
+            content: structuredTurn.question || structuredTurn.message || "You have repeatedly displayed unprofessional conduct and failed to take this assessment seriously despite multiple warnings. As a result, we will not be moving forward with your candidacy. This interview is concluded.",
+            questionId: structuredTurn.questionId || crypto.randomUUID(),
+            timestamp: new Date(),
+        };
+        session.conversationHistory.push(rejectionMessage);
+        await session.save();
+
+        return {
+            turn: {
+                ...structuredTurn,
+                type: "INTERVIEW_REJECTED",
+                question: rejectionMessage.content,
+            },
+            status: session.status,
+            terminationReason: session.terminationReason,
+            unprofessionalStrikes: session.unprofessionalStrikes,
+            activeCodingQuestion: session.activeCodingQuestion,
+            conversationHistory: session.conversationHistory,
+        };
+    }
+
+    // 3. Process response by type
+    if (structuredTurn.type === "CODING_QUESTION") {
+        session.activeCodingQuestion = {
+            questionId: structuredTurn.questionId,
+            title: structuredTurn.title || "Technical Coding Challenge",
+            question: structuredTurn.question,
+            language: structuredTurn.language || "javascript",
+            timeLimitSeconds: structuredTurn.timeLimitSeconds || 1200,
+            constraints: structuredTurn.constraints || [],
+            examples: structuredTurn.examples || [],
+            starterCode: structuredTurn.starterCode || "",
+            evaluationCriteria: structuredTurn.evaluationCriteria || [],
+        };
+        session.codingQuestions.push(session.activeCodingQuestion);
+        session.status = "coding_round";
+
+        session.conversationHistory.push({
+            id: `ai-${structuredTurn.questionId}`,
+            role: "ai",
+            type: "CODING_QUESTION",
+            content: structuredTurn.question,
+            questionId: structuredTurn.questionId,
+            isFollowUp: false,
+            timestamp: new Date(),
+            metadata: session.activeCodingQuestion,
+        });
+
+        // Persist dynamic coding challenge as a question record
+        const countCoding = await Question.countDocuments({ interviewId });
+        await Question.create({
+            interviewId,
+            questionText: structuredTurn.question,
+            order: countCoding + 1,
+            isTechnologyClarification: false,
+        }).catch(() => {});
+    } else if (structuredTurn.type === "INTERVIEW_COMPLETE") {
+        session.status = "completed";
+        session.conversationHistory.push({
+            id: `ai-${Date.now()}`,
+            role: "ai",
+            type: "SYSTEM_NOTIFICATION",
+            content: structuredTurn.message || "Interview completed.",
+            timestamp: new Date(),
+        });
+    } else {
+        if (structuredTurn.isFollowUp) {
+            session.followUpCount = (session.followUpCount || 0) + 1;
+        }
+        session.conversationHistory.push({
+            id: `ai-${structuredTurn.questionId}`,
+            role: "ai",
+            type: "INTERVIEW_QUESTION",
+            content: structuredTurn.question,
+            questionId: structuredTurn.questionId,
+            isFollowUp: structuredTurn.isFollowUp || false,
+            isUnprofessional: structuredTurn.isUnprofessional || false,
+            timestamp: new Date(),
+        });
+
+        // Persist dynamic interview question
+        const countQ = await Question.countDocuments({ interviewId });
+        await Question.create({
+            interviewId,
+            questionText: structuredTurn.question,
+            order: countQ + 1,
+            isTechnologyClarification: false,
+        }).catch(() => {});
+    }
+
+    await session.save();
+
+    return {
+        turn: structuredTurn,
+        status: session.status,
+        terminationReason: session.terminationReason || null,
+        unprofessionalStrikes: session.unprofessionalStrikes || 0,
+        followUpCount: session.followUpCount || 0,
+        activeCodingQuestion: session.activeCodingQuestion,
+        conversationHistory: session.conversationHistory,
+    };
+};
+
+export const recordSessionViolation = async (userId, interviewId, violationType) => {
+    const session = await assertInterviewOwner(userId, interviewId);
+
+    if (session.status === "completed" || session.status === "terminated") {
+        return {
+            violationCount: session.violationCount || 0,
+            cheatingDetected: session.cheatingDetected || false,
+            terminationReason: session.terminationReason || null,
+            status: session.status,
+        };
+    }
+
+    session.violations = session.violations || [];
+    session.violations.push({
+        type: violationType,
+        timestamp: new Date(),
+    });
+    session.violationCount = (session.violationCount || 0) + 1;
+
+    if (session.violationCount >= 2) {
+        session.cheatingDetected = true;
+        session.terminationReason = "MAX_VIOLATIONS_EXCEEDED";
+        session.status = "terminated";
+        session.submittedAt = new Date();
+    }
+
+    await session.save();
+
+    return {
+        violationCount: session.violationCount,
+        cheatingDetected: session.cheatingDetected,
+        terminationReason: session.terminationReason,
+        status: session.status,
+    };
+};
+
+export const processCodeSubmission = async (userId, interviewId, { code, language, questionId }) => {
+    const session = await assertInterviewOwner(userId, interviewId);
+
+    if (session.status === "completed" || session.status === "terminated" || session.status === "expired") {
+        throw httpError(400, `Interview is already ${session.status}`);
+    }
+    if (session.violationCount >= 2) {
+        throw httpError(403, "Interview terminated due to exceeding violation limits");
+    }
+    if (session.expiresAt && Date.now() > new Date(session.expiresAt).getTime()) {
+        session.status = "expired";
+        await session.save();
+        throw httpError(400, "Interview duration has expired. Please view your report.");
+    }
+
+    const activeQ = session.activeCodingQuestion;
+    const resolvedQuestionId = questionId || activeQ?.questionId || crypto.randomUUID();
+    const questionText = activeQ?.question || "Coding challenge implementation";
+    const criteria = activeQ?.evaluationCriteria || [];
+
+    const evaluation = await evaluateCodeRubricAI({
+        questionId: resolvedQuestionId,
+        question: questionText,
+        language: language || "javascript",
+        code,
+        evaluationCriteria: criteria,
+    });
+
+    const submissionDoc = {
+        questionId: resolvedQuestionId,
+        code,
+        language: language || "javascript",
+        submittedAt: new Date(),
+        evaluation,
+    };
+
+    session.codingSubmissions.push(submissionDoc);
+
+    session.conversationHistory.push({
+        id: `code-sub-${Date.now()}`,
+        role: "candidate",
+        type: "CODE_SUBMISSION",
+        content: `Solution submitted in ${language}:\n\`\`\`${language}\n${code}\n\`\`\``,
+        questionId: submissionDoc.questionId,
+        timestamp: new Date(),
+    });
+
+    const followUpQuestion = evaluation.followUpQuestion ||
+        "Thank you. Can you explain your choice of algorithm and how your solution handles edge cases?";
+
+    const canAskCodeFollowUp = (session.followUpCount || 0) < 3;
+    if (canAskCodeFollowUp) {
+        session.followUpCount = (session.followUpCount || 0) + 1;
+    }
+
+    session.conversationHistory.push({
+        id: `ai-code-followup-${Date.now()}`,
+        role: "ai",
+        type: "INTERVIEW_QUESTION",
+        content: followUpQuestion,
+        questionId: submissionDoc.questionId,
+        isFollowUp: canAskCodeFollowUp,
+        timestamp: new Date(),
+    });
+
+    session.status = "in_progress";
+    await session.save();
+
+    return {
+        evaluation,
+        followUpQuestion,
+        status: session.status,
+        conversationHistory: session.conversationHistory,
+    };
 };
