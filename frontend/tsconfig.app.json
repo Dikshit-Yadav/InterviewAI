@@ -4,7 +4,9 @@
 
      "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "antd": ["src/lib/antd-compat/index.tsx"],
+      "@ant-design/icons": ["src/lib/antd-compat/icons.tsx"]
     },
 
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",

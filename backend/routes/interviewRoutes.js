@@ -15,6 +15,10 @@ import {
   getSharedInterviewQuestions,
   getSharedAnswerFollowUp,
   submitSharedInterview,
+  getSessionState,
+  sendInterviewMessage,
+  submitCodingSolution,
+  logInterviewViolation,
 } from "../controllers/interviewController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import resumeUpload from "../middlewares/resumeUpload.js";
@@ -34,6 +38,36 @@ import {
 
 const router = express.Router();
 
+// Real-time conversational interview endpoints
+router.get(
+  "/session/:id",
+  authMiddleware,
+  validateRequest({ params: interviewIdParamsSchema }),
+  getSessionState
+);
+
+router.post(
+  "/session/:id/message",
+  authMiddleware,
+  validateRequest({ params: interviewIdParamsSchema }),
+  sendInterviewMessage
+);
+
+router.post(
+  "/session/:id/submit-code",
+  authMiddleware,
+  validateRequest({ params: interviewIdParamsSchema }),
+  submitCodingSolution
+);
+
+router.post(
+  "/session/:id/violation",
+  authMiddleware,
+  validateRequest({ params: interviewIdParamsSchema }),
+  logInterviewViolation
+);
+
+// Shared assessment endpoints
 router.post(
   "/shared",
   authMiddleware,
@@ -67,6 +101,7 @@ router.post(
   submitSharedInterview
 );
 
+// Standard mock interview endpoints
 router.post(
   "/start",
   authMiddleware,
