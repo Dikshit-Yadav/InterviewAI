@@ -228,7 +228,6 @@ Ask one brief follow-up only if the answer contains a concrete detail worth prob
     if (parsed.followUp === null) return null;
     if (typeof parsed.followUp === "string") followUp = parsed.followUp.trim();
   } catch {
-    // Plain-text output is the requested format; JSON is accepted for compatible models.
   }
 
   if (!followUp || followUp.length > 1000) {
@@ -356,7 +355,6 @@ ${resumeText}
   }
 };
 
-// Evaluate ALL answers of an interview in a single AI call
 export const evaluateAllAnswers = async (context, items) => {
   try {
     const prompt = `
@@ -418,7 +416,6 @@ No markdown. No explanation. Only JSON.
   }
 };
 
-// Generates the final performance report
 export const generateFinalReportAI = async (answers) => {
   try {
     const prompt = `
@@ -459,10 +456,6 @@ Return strictly JSON:
   }
 };
 
-/**
- * Real-time Conversational Turn Generator
- * Decides dynamically between INTERVIEW_QUESTION, CODING_QUESTION, or INTERVIEW_COMPLETE
- */
 export const generateStructuredInterviewTurn = async ({
   role,
   experience,
@@ -476,29 +469,32 @@ export const generateStructuredInterviewTurn = async ({
 }) => {
   const isTechnical =
     interviewType === "Technical Interview" ||
-    interviewType === "System Design Interview";
+    interviewType === "System Design Interview" || "HR Interview" || "Behavioral Interview";
 
   const totalAnswered = conversationHistory.filter(
     (m) => m.role === "candidate"
   ).length;
 
-  // Check if the immediately preceding AI question was a follow-up
   const lastAiMessage = [...conversationHistory].reverse().find(
     (m) => m.role === "ai" && (m.type === "INTERVIEW_QUESTION" || m.type === "CODING_QUESTION")
   );
   const wasLastQuestionFollowUp = Boolean(lastAiMessage?.isFollowUp);
 
-  // Total follow-up questions asked so far in the interview
   const totalFollowUps = followUpCount || conversationHistory.filter(
     (m) => m.role === "ai" && m.isFollowUp
   ).length;
 
-  // Maximum allowed follow-ups across the entire interview session is 3 to 4.
-  // And consecutive follow-up questions are strictly disallowed.
   const maxFollowUpsAllowed = 3;
   const canAskFollowUp = !wasLastQuestionFollowUp && totalFollowUps < maxFollowUpsAllowed;
 
-  // Determine appropriate programming language for coding challenges based on role & scope
+  const currentCodingCount = Math.max(
+    codingQuestionsCount,
+    conversationHistory.filter((m) => m.type === "CODING_QUESTION").length
+  );
+  const maxCodingQuestionsAllowed = 2;
+  const canAskCoding = isTechnical && currentCodingCount < maxCodingQuestionsAllowed;
+  const shouldIntroduceFirstCoding = isTechnical && currentCodingCount === 0 && totalAnswered >= 2;
+
   const roleLower = (role + " " + technologyScope).toLowerCase();
   const defaultCodingLanguage = roleLower.includes("machine learning") || roleLower.includes("data") || roleLower.includes("python")
     ? "python"
@@ -564,32 +560,68 @@ STRICT FOLLOW-UP RULES (CRITICAL USER POLICY):
    - Across the entire interview, there should only ever be 3 to 4 follow-up questions total.
    - If ${totalFollowUps} >= ${maxFollowUpsAllowed}: You CANNOT ask any more follow-up questions for the rest of the interview. Always set "isFollowUp": false.
 
+STRICT CODING QUESTION RULES (CRITICAL POLICY: ONLY 1-2 CODING QUESTIONS):
+- Coding challenges given so far in this session: ${currentCodingCount} (STRICT LIMIT: 1 to 2 coding challenges total per interview).
+- Is a coding challenge allowed now?: ${canAskCoding ? "YES" : "NO (STRICT LIMIT OF 1-2 REACHED)"}
+- Should the first coding challenge be introduced now?: ${shouldIntroduceFirstCoding ? "YES (MANDATORY - INTRODUCE 1ST CODING CHALLENGE NOW)" : "NO"}
+
+1. MUST ASK CODING QUESTIONS IN TECHNICAL INTERVIEW SESSIONS:
+   - For technical roles, practical hands-on coding ability is mandatory.
+   - When ${shouldIntroduceFirstCoding} is true (after 2-3 initial technical discussion questions, when coding questions count is 0), you MUST introduce the 1st practical coding challenge (type: "CODING_QUESTION", language: "${defaultCodingLanguage}").
+   - Do NOT spend the entire session talking theory without testing real code.
+
+2. STRICT CEILING OF 1 TO 2 CODING QUESTIONS:
+   - Across the entire interview, you may ask ONLY 1 to 2 coding questions.
+   - If 1 coding question has already been completed, you may optionally introduce a 2nd coding challenge later if appropriate.
+   - Once 2 coding questions have been presented (currentCodingCount >= 2), YOU MUST NEVER ASK ANOTHER CODING QUESTION under any circumstances. Transition to final technical topics or conclude the interview (type: "INTERVIEW_COMPLETE").
+
 EVERY QUESTION MUST BE 100% DYNAMIC:
 - Never ask generic textbook trivia or canned script questions.
 - Anchor your next question in the specific statements, libraries, algorithms, or architectures the candidate mentioned in their previous answer.
 - Formulate questions that test practical engineering judgment and real-world system building.
 
-RULE 1: NONSENSE & UNPROFESSIONAL CONDUCT DETECTION (3-STRIKES POLICY):
-If the candidate's answer is:
-- Irrelevant, trolling, or nonsensical (e.g., "i am king", "idk", "haha", "asdfghjk", random gibberish, emojis)
-- Arrogant, disrespectful, or mocking the interview process
-- Complete refusal to answer or dodging the technical question without attempting it
+RULE 1: UNPROFESSIONAL CONDUCT & TROLLING DETECTION (LENIENT & REASONABLE POLICY):
+Be LENIENT and BALANCED. DO NOT BE OVERLY STRICT OR SENSITIVE. A real engineering interview accommodates honest admissions of uncertainty, conversational nuances, casual phrasing, and nervousness.
 
-YOU MUST:
+STRICTLY NEVER ISSUE A STRIKE FOR THE FOLLOWING (MUST SET "isUnprofessional": false):
+- Saying "I don't know", "idk", "I'm not sure", "I haven't used this before", "I don't recall the syntax", or "Can we move to another question?":
+  * This is honest candidate communication, NOT misconduct.
+  * Never penalize honesty.
+  * Acknowledge it professionally and constructively (e.g. "No problem, that's completely fair. Let's explore..." or "That's fine, let's pivot to..."), and smoothly advance to another question or coding challenge.
+- Casual, informal, or conversational phrasing:
+  * Words like "haha", "lol", "yeah", "cool", "hmm", "well", "I guess", or brief answers are normal human conversation.
+  * NEVER flag casual speech as unprofessional.
+- Wrong, incomplete, or flawed technical answers:
+  * If the candidate attempts to answer but gets it wrong or demonstrates misunderstanding, that is purely a technical evaluation matter, NEVER an unprofessional strike.
+  * Set "isUnprofessional": false.
+
+ONLY ISSUE A STRIKE ("isUnprofessional": true) FOR BLATANT, INTENTIONAL TROLLING OR HOSTILITY:
+Issue a strike strictly if the candidate displays obvious, intentional bad faith, mockery, or abuse:
+- Blatant trolling, arrogance, or mockery of the interview (e.g., "i am king", "you are a dumb robot", "just give me the job without questions", "who cares about this stupid test").
+- Profanity, vulgarity, insults, or harassment.
+- Complete keyboard-mashing gibberish with zero coherent attempt (e.g., "asdfghjklqwerty12345", "zzzzzzzzzzz").
+
+WHEN (AND ONLY WHEN) A BLATANT TROLL OR HOSTILE RESPONSE OCCURS:
 - Set "isUnprofessional": true
-- Respond directly to the bad behavior as a real human interviewer:
-  - If current strikes is 0 (First strike): Be firm and professional. Call out the behavior explicitly:
-    "That is not the correct or professional behavior for an interview. Saying something like '${candidateAnswer.slice(0, 50)}' is completely irrelevant. This is a formal technical interview assessment. Please take it seriously and answer the question: [re-state or clarify the technical question]."
+- Respond directly to the bad behavior as a firm, professional interviewer:
+  - If current strikes is 0 (First strike): Be firm and professional:
+    "Please take this technical assessment seriously. In a professional engineering team, respectful and focused communication is expected. Let's refocus on the technical problem: [re-state or simplify question]."
   - If current strikes is 1 (Second strike): Give a stern final warning:
-    "This is your second warning for unprofessional and non-serious behavior. In a real-world engineering team, professional communication and technical focus are mandatory. If you continue with irrelevant answers, we will terminate this interview immediately: [re-state question]."
+    "This is your second warning for disruptive conduct. Professional communication is mandatory for our engineering team. If you continue with non-serious responses, we will conclude this interview immediately: [re-state question]."
   - If current strikes is 2 or more (Third and final strike): Conclude and reject:
     Return type "INTERVIEW_REJECTED" with question/message:
     "You have repeatedly displayed unprofessional conduct and failed to take this assessment seriously despite multiple warnings. We hold our engineers to high professional standards, and based on your conduct, we will not be moving forward with your candidacy. This interview is concluded."
 
 RULE 2: NORMAL DYNAMIC TECHNICAL PROGRESSION (when candidate answers seriously):
-- If candidate's answer leaves an explicit loophole AND canAskFollowUp is true (${canAskFollowUp}): ask ONE focused follow-up targeting that loophole. (type: "INTERVIEW_QUESTION", isFollowUp: true, stage: "Follow-up", isUnprofessional: false).
-- Otherwise (candidate answered correctly OR follow-up is not allowed): advance to a brand new core technical topic. (type: "INTERVIEW_QUESTION", isFollowUp: false, stage: "Core Questions", isUnprofessional: false).
-- Practical Coding Challenge: If this is a Technical or System Design interview, and at least 2 technical topics have been covered, and codingQuestionsCount is 0: introduce a practical coding challenge directly relevant to the discussed topics (type: "CODING_QUESTION", language: "${defaultCodingLanguage}").
+- If candidate says they don't know, are unfamiliar, or asks to move on:
+  - Set "isUnprofessional": false, "isFollowUp": false.
+  - Acknowledge courteously ("Understood, that's fine. Let's switch gears to...") and either introduce the next core question or transition to the practical coding round.
+- Practical Coding Challenge (MANDATORY 1-2 per interview):
+  - If ${shouldIntroduceFirstCoding}: introduce the 1st practical coding challenge directly relevant to their role and tech stack (type: "CODING_QUESTION", language: "${defaultCodingLanguage}").
+  - If candidate previously completed 1 coding challenge and you want to test another distinct algorithm/data structure AND canAskCoding (${canAskCoding}): introduce the 2nd (and final) coding challenge.
+  - If ${currentCodingCount} >= 2 or canAskCoding is false: DO NOT ask any more coding challenges.
+- Loophole Follow-up: If candidate's answer leaves an explicit loophole AND canAskFollowUp is true (${canAskFollowUp}): ask ONE focused follow-up targeting that loophole. (type: "INTERVIEW_QUESTION", isFollowUp: true, stage: "Follow-up", isUnprofessional: false).
+- Topic Evolution: If candidate answered correctly (or follow-up is not allowed): advance to a brand new core technical topic. (type: "INTERVIEW_QUESTION", isFollowUp: false, stage: "Core Questions", isUnprofessional: false).
 - Conclusion: If 5 or more questions have been answered including coding, conclude the interview (type: "INTERVIEW_COMPLETE").
 - NEVER repeat a question already asked in the conversation history.
 
@@ -676,13 +708,61 @@ If INTERVIEW_COMPLETE:
       parsed.questionId = crypto.randomUUID();
     }
 
-    // Programmatic enforcement of follow-up rules:
-    // 1. Never allow consecutive follow-up questions
-    // 2. Never allow more than 3-4 follow-ups total across the session
     if (parsed.isFollowUp && (!canAskFollowUp || totalFollowUps >= maxFollowUpsAllowed || wasLastQuestionFollowUp)) {
       parsed.isFollowUp = false;
       if (parsed.stage === "Follow-up") {
         parsed.stage = "Core Questions";
+      }
+    }
+
+    if (parsed.type === "CODING_QUESTION" && currentCodingCount >= maxCodingQuestionsAllowed) {
+      parsed.type = "INTERVIEW_QUESTION";
+      parsed.stage = "Core Questions";
+      parsed.isFollowUp = false;
+      parsed.question = "Let's discuss how your code architecture handles edge cases and scaling in a live production environment.";
+    }
+
+    // Lenient unprofessional check safeguard: ensure honest admissions of uncertainty, brief answers, or casual chat are never penalized
+    if (parsed.isUnprofessional && candidateAnswer) {
+      const normalizedAns = candidateAnswer.trim().toLowerCase();
+      const benignPhrases = [
+        "don't know",
+        "dont know",
+        "do not know",
+        "idk",
+        "not sure",
+        "haven't",
+        "havent",
+        "never used",
+        "skip",
+        "pass",
+        "no idea",
+        "no clue",
+        "can we move",
+        "can we skip",
+        "explain",
+        "hint",
+        "sorry",
+        "forgot",
+      ];
+      const isHonestAdmission = benignPhrases.some((phrase) => normalizedAns.includes(phrase));
+      const hasExplicitTrolling =
+        normalizedAns.includes("king") ||
+        normalizedAns.includes("stupid") ||
+        normalizedAns.includes("idiot") ||
+        normalizedAns.includes("shut up") ||
+        normalizedAns.includes("dumb") ||
+        normalizedAns.includes("fuck") ||
+        normalizedAns.includes("bitch") ||
+        /^[a-z]{15,}$/i.test(normalizedAns);
+
+      if (isHonestAdmission && !hasExplicitTrolling) {
+        parsed.isUnprofessional = false;
+        if (parsed.type === "INTERVIEW_REJECTED") {
+          parsed.type = "INTERVIEW_QUESTION";
+          parsed.stage = "Core Questions";
+          parsed.question = "No problem at all! Let's pivot to another topic: " + (parsed.question || "Could you tell me about a technical project you built recently?");
+        }
       }
     }
 
@@ -693,10 +773,6 @@ If INTERVIEW_COMPLETE:
   }
 };
 
-/**
- * AI Coding Rubric Evaluation
- * Evaluates candidate code against multi-criteria rubric without executing arbitrary code in the Node process.
- */
 export const evaluateCodeRubricAI = async ({
   questionId,
   question,

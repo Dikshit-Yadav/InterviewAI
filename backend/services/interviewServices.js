@@ -923,6 +923,14 @@ export const processInterviewMessage = async (userId, interviewId, messageText) 
         };
     }
 
+    // Safety check: Never exceed 2 coding questions per interview session
+    if (structuredTurn.type === "CODING_QUESTION" && (session.codingQuestions?.length || 0) >= 2) {
+        structuredTurn.type = "INTERVIEW_QUESTION";
+        structuredTurn.stage = "Core Questions";
+        structuredTurn.isFollowUp = false;
+        structuredTurn.question = "Let's discuss how your code architecture handles edge cases and scaling in a live production environment.";
+    }
+
     // 3. Process response by type
     if (structuredTurn.type === "CODING_QUESTION") {
         session.activeCodingQuestion = {
