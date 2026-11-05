@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -87,7 +87,6 @@ export default function SessionPage() {
   const [unprofessionalStrikes, setUnprofessionalStrikes] = useState(0);
   const [isTerminatedUnprofessional, setIsTerminatedUnprofessional] = useState(false);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
-  const [followUpCount, setFollowUpCount] = useState(0);
 
   // Load and hydrate interview session state from backend
   useEffect(() => {
@@ -113,7 +112,6 @@ export default function SessionPage() {
           );
           setViolationCount(state.violationCount || 0);
           setUnprofessionalStrikes(state.unprofessionalStrikes || 0);
-          setFollowUpCount(state.followUpCount || 0);
 
           if (state.conversationHistory && state.conversationHistory.length > 0) {
             setMessages(state.conversationHistory);
@@ -587,9 +585,6 @@ export default function SessionPage() {
 
       if (res.unprofessionalStrikes !== undefined) {
         setUnprofessionalStrikes(res.unprofessionalStrikes);
-      }
-      if (res.followUpCount !== undefined) {
-        setFollowUpCount(res.followUpCount);
       }
 
       if (res.conversationHistory && res.conversationHistory.length > 0) {

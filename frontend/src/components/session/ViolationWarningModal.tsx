@@ -1,4 +1,3 @@
-import React from "react";
 import { WarningOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 
 type Props = {

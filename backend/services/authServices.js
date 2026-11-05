@@ -129,7 +129,7 @@ export const registerUser = async (name, email, password, targetRole) => {
 };
 
 export const loginUser = async (email, password) => {
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
 
   if (!user) throw new Error("User not found");
   if (!user.password) throw new Error("This account uses Google sign-in");
