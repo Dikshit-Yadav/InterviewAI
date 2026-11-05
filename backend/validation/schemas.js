@@ -61,6 +61,16 @@ export const resetPasswordBodySchema = z.object({
 export const profileBodySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
   targetRole: roleSchema,
+  experience: z.string().trim().max(100).optional().default(""),
+  education: z.string().trim().max(200).optional().default(""),
+  bio: z.string().trim().max(1000).optional().default(""),
+  skills: z.array(z.string().trim().max(50)).optional().default([]),
+  strongstSkill: z.string().trim().max(100).optional().default(""),
+  weakestSkill: z.string().trim().max(100).optional().default(""),
+  location: z.string().trim().max(150).optional().default(""),
+  phone: z.string().trim().max(40).optional().default(""),
+  github: z.string().trim().max(300).optional().default(""),
+  linkedin: z.string().trim().max(300).optional().default(""),
 });
 
 export const interviewStartBodySchema = z.object({

@@ -11,6 +11,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "antd": path.resolve(__dirname, "./src/lib/antd-compat/index.tsx"),
+      "@ant-design/icons": path.resolve(__dirname, "./src/lib/antd-compat/icons.tsx"),
     },
   },
 });

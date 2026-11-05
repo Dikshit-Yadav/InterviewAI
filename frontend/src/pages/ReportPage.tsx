@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Download, LayoutDashboard, ShieldAlert } from "lucide-react";
+import { Download, LayoutDashboard, ShieldAlert, Clock } from "lucide-react";
 import { interviewService } from "@/services/interviewServices";
 import Nabar from "@/components/dashboard/DashboardNavbar";
 import ScoreCard from "@/components/report/ScoreCard";
@@ -16,7 +16,8 @@ export default function ReportPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const isAutoSubmitted = searchParams.get("reason") === "tab_switch";
+  const isTabSwitchTermination =
+    searchParams.get("reason") === "tab_switch" || searchParams.get("cheating") === "true";
 
   const [report, setReport] = useState<InterviewReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +51,11 @@ export default function ReportPage() {
     return (
       <div className="grid min-h-screen place-items-center bg-background px-6 text-center">
         <div className="space-y-4" role="alert">
-          <p className="text-error">{error}</p>
+          <p className="text-error font-medium">{error}</p>
           {id && (
             <Link
               to={`/interview/${id}`}
-              className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-hover"
+              className="inline-flex rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-hover"
             >
               Return to interview
             </Link>
@@ -65,6 +66,8 @@ export default function ReportPage() {
   }
   if (!report) return <PageSkeleton page="report" />;
 
+  const isCheatingFlagged = report.cheatingDetected || isTabSwitchTermination;
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
       <div className="shrink-0 print:hidden">
@@ -73,18 +76,19 @@ export default function ReportPage() {
 
       <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 print:overflow-visible print:h-auto">
         <div className="mx-auto max-w-5xl space-y-6 pb-12">
+          {/* Header Action Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 pb-2 print:hidden">
             <div>
-              <h1 className="text-2xl font-bold">Interview Performance Report</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Interview Performance Report</h1>
               <p className="text-sm text-secondary">
-                Review your detailed scores, strengths, and AI recommendations.
+                Review your detailed scores, multi-criteria rubric evaluation, and AI feedback.
               </p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-medium text-foreground hover:bg-surface-hover shadow-sm transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-foreground hover:bg-surface-hover shadow-xs transition-colors cursor-pointer"
                 title="Save or print report as PDF"
               >
                 <Download className="h-4 w-4 text-brand" />
@@ -93,7 +97,7 @@ export default function ReportPage() {
               <button
                 type="button"
                 onClick={() => navigate("/dashboard")}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-brand-hover shadow-sm transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-sm font-semibold text-primary-foreground hover:bg-brand-hover shadow-xs transition-colors cursor-pointer"
               >
                 <LayoutDashboard className="h-4 w-4" />
                 <span>Go to Dashboard</span>
@@ -101,23 +105,50 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {isAutoSubmitted && (
-            <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
-              <ShieldAlert className="h-5 w-5 shrink-0" />
-              <span>
-                Your interview was submitted automatically because the maximum allowed tab switches (3/3) were reached.
-              </span>
+          {/* Cheating Alert Banner */}
+          {isCheatingFlagged && (
+            <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-5 text-sm space-y-3">
+              <div className="flex items-center gap-2.5 font-bold text-destructive text-base">
+                <ShieldAlert className="h-5 w-5 shrink-0" />
+                <span>CHEATING DETECTED &mdash; Interview Terminated Due to Proctoring Violations</span>
+              </div>
+              <p className="text-foreground text-xs sm:text-sm leading-relaxed">
+                This assessment was automatically terminated because the allowable limit of 2 security warnings
+                (tab switching or exiting full-screen mode) was reached. A malpractice penalty has been applied to the overall score, and only responses submitted prior to termination were evaluated.
+              </p>
+
+              {report.violations && report.violations.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-destructive/20">
+                  {report.violations.map((v, idx) => (
+                    <div
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/15 px-3 py-1 text-xs font-mono font-semibold text-destructive"
+                    >
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        Violation {idx + 1}: {v.type === "TAB_SWITCH" ? "Tab Switch / Window Inactive" : "Full-Screen Exit"}{" "}
+                        ({new Date(v.timestamp).toLocaleTimeString()})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
+          {/* Score Card with Multi-criteria & Coding Rubric breakdown */}
           <ScoreCard report={report} />
 
+          {/* Strengths & Weaknesses */}
           <StrengthWeakness report={report} />
 
+          {/* Learning Path */}
           <LearningPath report={report} />
 
+          {/* Tips Section */}
           <TipsSection report={report} />
 
+          {/* Question by Question Analysis */}
           <QuestionAnalysis report={report} />
         </div>
       </main>

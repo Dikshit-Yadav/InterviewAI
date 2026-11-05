@@ -15,7 +15,7 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: "Not authorized, invalid or expired token" });
     }
 
-    const user = await User.findOne({ email: decoded.id });
+    const user = await User.findOne({ email: decoded.id }).select("-password");
     if (!user) {
       return res.status(401).json({ message: "Not authorized, user not found" });
     }
