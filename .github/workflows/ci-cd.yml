@@ -3,8 +3,10 @@ name: CI and CD
 on:
   pull_request:
     branches: [main]
+
   push:
     branches: [main]
+
   workflow_dispatch:
 
 permissions:
@@ -18,6 +20,7 @@ jobs:
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -50,6 +53,7 @@ jobs:
   backend:
     name: Backend checks
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -66,12 +70,15 @@ jobs:
         working-directory: backend
 
       - name: Check backend JavaScript syntax
-        run: find . -path './node_modules' -prune -o -name '*.js' -type f -print0 | xargs -0 -r -n 1 node --check
+        run: |
+          find . -path './node_modules' -prune -o -name '*.js' -type f -print0 |
+          xargs -0 -r -n 1 node --check
         working-directory: backend
 
   container-build:
     name: Build deployment images
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -99,10 +106,15 @@ jobs:
 
   deploy:
     name: Deploy to EC2
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+
     needs: [frontend, backend, container-build]
+
     runs-on: ubuntu-latest
+
     environment: production
+
     steps:
       - name: Deploy the latest main branch
         env:
@@ -112,28 +124,58 @@ jobs:
           EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
           EC2_APP_PATH: ${{ vars.EC2_APP_PATH }}
           APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+
         run: |
           set -euo pipefail
-          : "${EC2_HOST:?Set EC2_HOST in the production environment secrets}"
-          : "${EC2_USER:?Set EC2_USER in the production environment secrets}"
-          : "${EC2_SSH_PRIVATE_KEY:?Set EC2_SSH_PRIVATE_KEY in the production environment secrets}"
-          : "${EC2_KNOWN_HOSTS:?Set EC2_KNOWN_HOSTS in the production environment secrets}"
-          : "${EC2_APP_PATH:?Set EC2_APP_PATH in the production environment variables}"
-          : "${APP_DOMAIN:?Set APP_DOMAIN in the production environment variables}"
-          [[ "$EC2_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "EC2_HOST must be a hostname or IP address" >&2; exit 1; }
-          [[ "$EC2_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "EC2_USER contains unsupported characters" >&2; exit 1; }
-          [[ "$EC2_APP_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "EC2_APP_PATH must be an absolute path using only letters, digits, dots, underscores, slashes, and hyphens" >&2; exit 1; }
-          [[ "$APP_DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$ ]] || { echo "APP_DOMAIN must be a public DNS name" >&2; exit 1; }
+
+          : "${EC2_HOST:?Set EC2_HOST in production environment secrets}"
+          : "${EC2_USER:?Set EC2_USER in production environment secrets}"
+          : "${EC2_SSH_PRIVATE_KEY:?Set EC2_SSH_PRIVATE_KEY in production environment secrets}"
+          : "${EC2_KNOWN_HOSTS:?Set EC2_KNOWN_HOSTS in production environment secrets}"
+          : "${EC2_APP_PATH:?Set EC2_APP_PATH in production environment variables}"
+          : "${APP_DOMAIN:?Set APP_DOMAIN in production environment variables}"
+
+          [[ "$EC2_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || {
+            echo "Invalid EC2_HOST"
+            exit 1
+          }
+
+          [[ "$EC2_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || {
+            echo "Invalid EC2_USER"
+            exit 1
+          }
+
+          [[ "$EC2_APP_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || {
+            echo "Invalid EC2_APP_PATH"
+            exit 1
+          }
+
+          [[ "$APP_DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$ ]] || {
+            echo "Invalid APP_DOMAIN"
+            exit 1
+          }
 
           key_file="$(mktemp)"
-          trap 'rm -f "$key_file"' EXIT
+          known_hosts_file="$(mktemp)"
+
+          trap 'rm -f "$key_file" "$known_hosts_file"' EXIT
+
           chmod 600 "$key_file"
+          chmod 600 "$known_hosts_file"
+
           printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > "$key_file"
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > "$known_hosts_file"
+
+          echo "Verifying EC2 host key..."
+
+          ssh-keygen -F "$EC2_HOST" -f "$known_hosts_file"
+
+          echo "Connecting to EC2..."
 
           ssh \
             -i "$key_file" \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=<(printf '%s\n' "$EC2_KNOWN_HOSTS") \
+            -o UserKnownHostsFile="$known_hosts_file" \
             "$EC2_USER@$EC2_HOST" \
             "cd '$EC2_APP_PATH' && git pull --ff-only origin main && APP_DOMAIN='$APP_DOMAIN' ./deploy-ec2.sh"
