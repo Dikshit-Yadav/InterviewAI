@@ -19,7 +19,10 @@ import type { CodingQuestion, CodingEvaluation } from "@/types/api";
 
 type Props = {
   codingQuestion: CodingQuestion | null;
-  onSubmitCode: (code: string, language: string) => Promise<void>;
+  onSubmitCode: (
+    code: string,
+    language: string,
+  ) => Promise<CodingEvaluation | null>;
   isSubmitting?: boolean;
   evaluationResult?: CodingEvaluation | null;
   isFullWidth?: boolean;
@@ -53,38 +56,21 @@ export default function CodingWorkspace({
   isTerminated = false,
   onToggleFullWidth,
 }: Props) {
-  const [code, setCode] = useState("");
-  const [language, setLanguage] = useState("javascript");
-  const [remainingTime, setRemainingTime] = useState(1200);
+  const [code, setCode] = useState(
+    () => codingQuestion?.starterCode || "// Write your solution here\n",
+  );
+  const [language, setLanguage] = useState(() =>
+    codingQuestion?.language?.toLowerCase() || "javascript",
+  );
+  const [remainingTime, setRemainingTime] = useState(
+    () =>
+      codingQuestion?.timeLimitSeconds && codingQuestion.timeLimitSeconds > 0
+        ? codingQuestion.timeLimitSeconds
+        : 1200,
+  );
   const [activeTab, setActiveTab] = useState<"problem" | "examples" | "evaluation">("problem");
   const hasAutoSubmittedRef = useRef(false);
   const timerHasTickedRef = useRef(false);
-
-  // Sync starter code, language, and time limit when question changes
-  useEffect(() => {
-    if (codingQuestion) {
-      setCode(codingQuestion.starterCode || "// Write your solution here\n");
-      const detectedLang = codingQuestion.language
-        ? codingQuestion.language.toLowerCase()
-        : "javascript";
-      setLanguage(detectedLang);
-      setRemainingTime(
-        codingQuestion.timeLimitSeconds && codingQuestion.timeLimitSeconds > 0
-          ? codingQuestion.timeLimitSeconds
-          : 1200
-      );
-      setActiveTab("problem");
-      hasAutoSubmittedRef.current = false;
-      timerHasTickedRef.current = false;
-    }
-  }, [codingQuestion]);
-
-  // When evaluation result arrives, auto-switch to evaluation tab
-  useEffect(() => {
-    if (evaluationResult) {
-      setActiveTab("evaluation");
-    }
-  }, [evaluationResult]);
 
   // Dedicated coding timer countdown - stops if session is terminated
   useEffect(() => {
@@ -117,7 +103,9 @@ export default function CodingWorkspace({
       hasAutoSubmittedRef.current = true;
       const codeToSubmit =
         code.trim() || "// Auto-submitted upon time expiry: No solution entered";
-      onSubmitCode(codeToSubmit, language);
+      void onSubmitCode(codeToSubmit, language).then((result) => {
+        if (result) setActiveTab("evaluation");
+      });
     }
   }, [remainingTime, codingQuestion, code, language, isSubmitting, isTerminated, onSubmitCode]);
 
@@ -132,7 +120,8 @@ export default function CodingWorkspace({
   const handleSubmit = async () => {
     const trimmed = code.trim();
     if (!trimmed || isSubmitting || remainingTime <= 0) return;
-    await onSubmitCode(trimmed, language);
+    const result = await onSubmitCode(trimmed, language);
+    if (result) setActiveTab("evaluation");
   };
 
   // When no coding question is active, display a clean placeholder
@@ -164,7 +153,7 @@ export default function CodingWorkspace({
   const isEditorLocked = isSubmitting || isTimerExpired || isTerminated;
 
   // Reusable Description Pane Component
-  const DescriptionPane = () => (
+  const renderDescriptionPane = () => (
     <div className="h-full overflow-y-auto p-4 space-y-3 bg-surface text-foreground">
       <div className="flex items-center justify-between border-b border-border pb-2.5">
         <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -405,7 +394,7 @@ export default function CodingWorkspace({
         /* Full-width side-by-side mode: Description on Left (40%), Editor on Right (60%) */
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[40%] border-r border-border overflow-hidden flex flex-col">
-            <DescriptionPane />
+            {renderDescriptionPane()}
           </div>
           <div className="w-[60%] flex flex-col overflow-hidden p-3 bg-background">
             <div className="flex-1 overflow-hidden rounded-xl border border-border shadow-xs">
@@ -422,7 +411,7 @@ export default function CodingWorkspace({
         /* Split mode: Description on Top (40%), Editor on Bottom (60%) */
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="max-h-[45%] overflow-y-auto border-b border-border">
-            <DescriptionPane />
+            {renderDescriptionPane()}
           </div>
           <div className="flex-1 p-3 min-h-[220px] bg-background">
             <div className="h-full rounded-xl border border-border overflow-hidden shadow-xs">

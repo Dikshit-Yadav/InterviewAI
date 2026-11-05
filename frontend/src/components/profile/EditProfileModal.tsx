@@ -44,7 +44,7 @@ const SUGGESTED_SKILLS = [
   "Data Structures",
 ];
 
-export default function EditProfileModal({
+function EditProfileModalContent({
   isOpen,
   onClose,
   user,
@@ -67,23 +67,6 @@ export default function EditProfileModal({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "skills" | "about">("general");
 
-  // Sync state if user prop changes
-  useEffect(() => {
-    setName(user.name || "");
-    setTargetRole(user.targetRole || "");
-    setExperience(user.experience || "Intermediate");
-    setEducation(user.education || "");
-    setBio(user.bio || "");
-    setPhone(user.phone || "");
-    setLocation(user.location || "");
-    setGithub(user.github || "");
-    setLinkedin(user.linkedin || "");
-    setSkills(user.skills || []);
-    setStrongstSkill(user.strongstSkill || "");
-    setWeakestSkill(user.weakestSkill || "");
-  }, [user]);
-
-  // Handle escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen && !loading) {
@@ -146,7 +129,7 @@ export default function EditProfileModal({
     try {
       const response = await updateProfile(validation.data);
 
-      // Keep sessionStorage synchronized for immediate navbar updates
+
       sessionStorage.setItem("name", JSON.stringify(response.user.name));
       sessionStorage.setItem("role", JSON.stringify(response.user.targetRole));
 
@@ -167,15 +150,12 @@ export default function EditProfileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={() => !loading && onClose()}
       />
 
-      {/* Modal Dialog */}
       <div className="relative w-full max-w-2xl bg-surface-elevated border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]">
-        {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-brand/20 text-brand-hover">
@@ -200,7 +180,6 @@ export default function EditProfileModal({
           </button>
         </div>
 
-        {/* Tab Navigation */}
         <div className="px-6 border-b border-white/10 flex gap-4 text-xs font-medium bg-white/[0.01]">
           <button
             type="button"
@@ -240,12 +219,10 @@ export default function EditProfileModal({
           </button>
         </div>
 
-        {/* Form Body */}
         <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-5 flex-1">
             {activeTab === "general" && (
               <div className="space-y-4">
-                {/* Full Name */}
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1.5">
                     Full Name <span className="text-rose-400">*</span>
@@ -260,7 +237,6 @@ export default function EditProfileModal({
                   />
                 </div>
 
-                {/* Target Role & Experience */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-300 mb-1.5">
@@ -292,7 +268,6 @@ export default function EditProfileModal({
                   </div>
                 </div>
 
-                {/* Education */}
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1.5 flex items-center gap-1.5">
                     <GraduationCap className="w-3.5 h-3.5 text-gray-400" />
@@ -307,7 +282,6 @@ export default function EditProfileModal({
                   />
                 </div>
 
-                {/* Location & Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-300 mb-1.5 flex items-center gap-1.5">
@@ -342,7 +316,6 @@ export default function EditProfileModal({
 
             {activeTab === "skills" && (
               <div className="space-y-4">
-                {/* Add Skill Input */}
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1.5">
                     Add Technical Skill
@@ -372,7 +345,6 @@ export default function EditProfileModal({
                   </div>
                 </div>
 
-                {/* Current Skills Cloud */}
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-2">
                     Current Skills ({skills.length})
@@ -403,7 +375,6 @@ export default function EditProfileModal({
                   )}
                 </div>
 
-                {/* Quick Suggestions */}
                 <div>
                   <span className="block text-xs font-medium text-gray-400 mb-2">
                     Popular Suggestions (Click to add)
@@ -467,7 +438,6 @@ export default function EditProfileModal({
 
             {activeTab === "about" && (
               <div className="space-y-4">
-                {/* Bio / Summary */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-medium text-gray-300">
@@ -487,7 +457,6 @@ export default function EditProfileModal({
                   />
                 </div>
 
-                {/* Social Profiles */}
                 <div className="space-y-3 pt-2 border-t border-white/10">
                   <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
                     Online Profiles & Links
@@ -525,7 +494,6 @@ export default function EditProfileModal({
             )}
           </div>
 
-          {/* Footer Actions */}
           <div className="px-6 py-4 border-t border-white/10 bg-white/[0.02] flex items-center justify-between gap-3">
             <button
               type="button"
@@ -559,3 +527,6 @@ export default function EditProfileModal({
   );
 }
 
+export default function EditProfileModal(props: Props) {
+  return <EditProfileModalContent key={JSON.stringify(props.user)} {...props} />;
+}

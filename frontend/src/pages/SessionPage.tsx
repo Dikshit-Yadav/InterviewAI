@@ -45,15 +45,7 @@ const TOTAL_INTERVIEW_SECONDS = 30 * 60; // 30 minutes
 
 export default function SessionPage() {
   const navigate = useNavigate();
-<<<<<<< HEAD
-  const { interviewId } = useParams();
-  const interviewContainerRef = useRef<HTMLDivElement>(null);
-  const handleFinishRef = useRef<
-    ((confirmed?: boolean, autoSubmit?: boolean) => Promise<void>) | null
-  >(null);
-=======
   const { interviewId } = useParams<{ interviewId: string }>();
->>>>>>> d1357ea36320715ecac4bd455ccfae5fb78e919e
 
   // Core interview state
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -364,94 +356,7 @@ export default function SessionPage() {
 
   // Tab switch detection via visibilitychange and window blur
   useEffect(() => {
-<<<<<<< HEAD
-    if (!interviewStarted || submitted) return;
-
-    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", warnBeforeLeaving);
-    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
-  }, [interviewStarted, submitted]);
-
-  const enterFullscreen = async () => {
-    if (!cameraReady && !interviewStarted) {
-      toast.error("Camera permission is required before starting the interview.");
-      return;
-    }
-
-    const container = interviewContainerRef.current || document.documentElement;
-    if (!container?.requestFullscreen) {
-      setFullscreenError("Fullscreen is not supported by this browser.");
-      return;
-    }
-
-    try {
-      await container.requestFullscreen();
-      setIsFullscreen(true);
-      setFullscreenExited(false);
-      setInterviewStarted(true);
-      setFullscreenError(null);
-    } catch (requestError) {
-      console.error("Could not enter interview fullscreen", requestError);
-      setFullscreenError(
-        "Could not enter fullscreen. Allow fullscreen in your browser, or continue without it.",
-      );
-    }
-  };
-
-  const continueWithoutFullscreen = () => {
-    if (!cameraReady && !interviewStarted) {
-      toast.error("Camera permission is required before starting the interview.");
-      return;
-    }
-    setIsFullscreen(false);
-    setInterviewStarted(true);
-    setFullscreenExited(false);
-    setFullscreenError(null);
-  };
-
-  // tab switch monitoring
-  useEffect(() => {
-    if (!interviewStarted || submitted || questions.length === 0) return;
-
-    let armed = false;
-    // grace period to prevent blurs during fullscreen transition
-    const timer = setTimeout(() => {
-      armed = true;
-    }, 1200);
-
-    let lastSwitchTime = 0;
-
-    const handleTabSwitch = () => {
-      if (!armed) return;
-      const now = Date.now();
-      if (now - lastSwitchTime < 1500) return;
-      lastSwitchTime = now;
-
-      setTabSwitchCount((prev) => {
-        const next = prev + 1;
-        if (next >= 3) {
-          toast.error(
-            "Tab switch limit reached (3/3)! Submitting interview automatically...",
-            { autoClose: 5000 },
-          );
-          void handleFinishRef.current?.(true, true);
-          return 3;
-        } else {
-          toast.warn(
-            `Tab switch detected (${next}/3)! Switching tabs 3 times will automatically submit your interview.`,
-            { autoClose: 4000 },
-          );
-          return next;
-        }
-      });
-    };
-=======
     if (!interviewStarted || submitting || cheatingDetected || isTerminatedUnprofessional) return;
->>>>>>> d1357ea36320715ecac4bd455ccfae5fb78e919e
 
     const handleVisibilityChange = () => {
       if (document.hidden && proctoringArmedRef.current) {
@@ -541,95 +446,10 @@ export default function SessionPage() {
         e.preventDefault();
         toast.warn("Inspection and developer shortcuts are prohibited during the assessment.");
       }
-<<<<<<< HEAD
-
-      const introduction = questions.find((question) => question.order === 1);
-
-      if (!answers[introduction?._id ?? ""]?.trim()) {
-        setShowFinishConfirm(false);
-        setError("A brief introduction is required before you finish.");
-        return;
-      }
-    }
-
-    setShowFinishConfirm(false);
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      await interviewService.submitInterview(
-        interviewId,
-        questions.map((question) => ({
-          questionId: question._id,
-          answer: (answers[question._id] ?? "").trim(),
-        })),
-      );
-
-      setSubmitted(true);
-      localStorage.removeItem(draftKey(interviewId));
-      navigate(
-        autoSubmit
-          ? `/report/${interviewId}?reason=tab_switch`
-          : `/report/${interviewId}`,
-      );
-    } catch (err: unknown) {
-      console.error("Could not finish interview", err);
-
-      setError(
-        getErrorMessage(
-          err,
-          "Could not finish the interview. Your answers are saved; please try again.",
-        ),
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  handleFinishRef.current = handleFinish;
-
-  const handleNext = async () => {
-    if (!interviewId || !currentQuestion || submitting) return;
-    if (
-      currentIndex === questions.length - 1 &&
-      !currentQuestion.isTechnologyClarification
-    ) {
-      await handleFinish();
-      return;
-    }
-    const answer = (answers[currentQuestion._id] ?? "").trim();
-    if (currentQuestion.order === 1 && !answer) {
-      setError("A brief introduction is required before you continue.");
-      return;
-    }
-    if (currentQuestion.isTechnologyClarification && !answer) {
-      setError("List the technologies you work with before continuing.");
-      return;
-    }
-    if (currentQuestion.isTechnologyClarification && answer.length > 500) {
-      setError("Your technology list cannot exceed 500 characters.");
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (currentQuestion.isTechnologyClarification) {
-        const scopedQuestions = await interviewService.resolveTechnologies(
-          interviewId,
-          currentQuestion._id,
-          answer,
-        );
-        setQuestions(scopedQuestions);
-        setAnswers((previous) => {
-          const next = { ...previous };
-          delete next[currentQuestion._id];
-          return next;
-=======
       if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) {
         e.preventDefault();
         toast.warn("Copying is disabled during this proctored assessment.", {
           toastId: "copy-blocked",
->>>>>>> d1357ea36320715ecac4bd455ccfae5fb78e919e
         });
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
@@ -840,8 +660,11 @@ export default function SessionPage() {
   };
 
   // Submit candidate code from Coding Workspace
-  const handleSubmitCode = async (code: string, language: string) => {
-    if (!activeCodingQuestion || isSubmittingCode || !interviewId) return;
+  const handleSubmitCode = async (
+    code: string,
+    language: string,
+  ): Promise<CodingEvaluation | null> => {
+    if (!activeCodingQuestion || isSubmittingCode || !interviewId) return null;
     setIsSubmittingCode(true);
 
     try {
@@ -862,9 +685,11 @@ export default function SessionPage() {
       toast.success("Code solution evaluated! Review the AI feedback rubric and discuss in chat.", {
         autoClose: 5000,
       });
+      return res.evaluation ?? null;
     } catch (err) {
       console.error("Code submission error:", err);
       toast.error(getErrorMessage(err, "Could not evaluate code solution. Please try again."));
+      return null;
     } finally {
       setIsSubmittingCode(false);
     }
@@ -1038,6 +863,7 @@ export default function SessionPage() {
           }`}
         >
           <CodingWorkspace
+            key={activeCodingQuestion?.questionId ?? "inactive"}
             codingQuestion={activeCodingQuestion}
             onSubmitCode={handleSubmitCode}
             isSubmitting={isSubmittingCode}

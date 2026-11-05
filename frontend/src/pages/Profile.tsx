@@ -62,7 +62,10 @@ export default function Profile() {
   }, []);
 
   useEffect(() => {
-    fetchProfileData();
+    const fetchTimer = window.setTimeout(() => {
+      void fetchProfileData();
+    }, 0);
+    return () => window.clearTimeout(fetchTimer);
   }, [fetchProfileData]);
 
   const handleProfileUpdated = (updatedUser: UserProfile) => {

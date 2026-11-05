@@ -27,14 +27,6 @@ export default function CheaterDetectedScreen({
     }
   };
 
-  const defaultViolations: ViolationRecord[] =
-    violations.length > 0
-      ? violations
-      : [
-          { type: "TAB_SWITCH", timestamp: new Date(Date.now() - 60000) },
-          { type: "FULLSCREEN_EXIT", timestamp: new Date() },
-        ];
-
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background px-4 py-8 text-foreground select-none">
       <div className="w-full max-w-xl rounded-2xl border border-destructive/40 bg-card p-6 sm:p-8 shadow-2xl space-y-6 text-center animate-fade-in">
@@ -62,7 +54,7 @@ export default function CheaterDetectedScreen({
             Security Boundary Violations Logged:
           </p>
           <div className="space-y-2">
-            {defaultViolations.slice(0, 2).map((v, idx) => (
+            {violations.slice(0, 2).map((v, idx) => (
               <div
                 key={idx}
                 className="flex items-center justify-between rounded-lg border border-destructive/20 bg-background/80 px-3 py-2"
@@ -85,6 +77,9 @@ export default function CheaterDetectedScreen({
                 </span>
               </div>
             ))}
+            {violations.length === 0 && (
+              <p className="text-muted-foreground">Violation details are unavailable.</p>
+            )}
           </div>
 
           <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/80">

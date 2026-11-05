@@ -67,7 +67,7 @@ export default function CodeEditor({
           completionKeymap: true,
           lintKeymap: true,
         }}
-        onChange={(val) => onChange(val)}
+        onChange={(val: string) => onChange(val)}
         className="h-full overflow-auto text-sm"
       />
     </div>

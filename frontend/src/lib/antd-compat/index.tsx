@@ -5,19 +5,13 @@ import { Loader2, AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "luci
 export const ConfigProvider = ({
   children,
 }: {
-  theme?: any;
+  theme?: object;
   children: React.ReactNode;
 }) => {
   return <div className="antd-root">{children}</div>;
 };
 
-// 2. theme
-export const theme = {
-  darkAlgorithm: "dark",
-  defaultAlgorithm: "default",
-};
-
-// 3. Button
+// 2. Button
 export type ButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type" | "size"> & {
   type?: "primary" | "default" | "dashed" | "link" | "text";
   danger?: boolean;
@@ -190,7 +184,6 @@ export const Alert = ({
   );
 };
 
-// 8. Spin
 export const Spin = ({
   size = "default",
   className = "",
@@ -202,7 +195,6 @@ export const Spin = ({
   return <Loader2 className={`animate-spin text-indigo-400 ${className}`} size={px} />;
 };
 
-// 9. Select
 export const Select = ({
   value,
   onChange,
@@ -241,7 +233,6 @@ export const Select = ({
   );
 };
 
-// 10. Modal (Component and Modal.confirm)
 type ModalProps = {
   open: boolean;
   onCancel?: () => void;
@@ -301,7 +292,7 @@ Modal.confirm = ({
   okText?: string;
   cancelText?: string;
   icon?: React.ReactNode;
-  okButtonProps?: any;
+  okButtonProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
 }) => {
   const confirmed = window.confirm(
     typeof content === "string" ? `${title}\n\n${content}` : String(title)
@@ -311,7 +302,6 @@ Modal.confirm = ({
   }
 };
 
-// 11. Progress
 export const Progress = ({
   percent = 0,
   className = "",
@@ -327,7 +317,6 @@ export const Progress = ({
   </div>
 );
 
-// 12. Statistic
 export const Statistic = ({
   title,
   value,
@@ -347,18 +336,3 @@ export const Statistic = ({
     </div>
   </div>
 );
-
-export default {
-  ConfigProvider,
-  theme,
-  Button,
-  Tag,
-  Badge,
-  Tooltip,
-  Alert,
-  Spin,
-  Select,
-  Modal,
-  Progress,
-  Statistic,
-};
