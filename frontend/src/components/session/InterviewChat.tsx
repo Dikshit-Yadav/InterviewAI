@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Button, Tooltip, Tag } from "antd";
 import {
   SendOutlined,
@@ -71,7 +71,6 @@ export default function InterviewChat({
   isAiGenerating,
   onSendMessage,
   onOpenCodingWorkspace,
-  hasActiveCodingQuestion = false,
   isTerminated = false,
   terminationReason = null,
   unprofessionalStrikes = 0,

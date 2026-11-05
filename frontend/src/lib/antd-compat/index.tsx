@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Loader2, AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
 
 // 1. ConfigProvider
@@ -18,7 +18,7 @@ export const theme = {
 };
 
 // 3. Button
-export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+export type ButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type" | "size"> & {
   type?: "primary" | "default" | "dashed" | "link" | "text";
   danger?: boolean;
   size?: "large" | "middle" | "small";
@@ -209,18 +209,28 @@ export const Select = ({
   options = [],
   className = "",
   size = "middle",
+  disabled = false,
 }: {
   value: string;
   onChange: (val: string) => void;
   options: Array<{ value: string; label: string }>;
   className?: string;
   size?: "small" | "middle" | "large";
+  disabled?: boolean;
 }) => {
+  const sizeClasses =
+    size === "small"
+      ? "px-2 py-0.5 text-[11px]"
+      : size === "large"
+      ? "px-3 py-1.5 text-sm"
+      : "px-2.5 py-1 text-xs";
+
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded-lg border border-white/15 bg-neutral-900 px-2.5 py-1 text-xs font-medium text-neutral-200 outline-none hover:border-indigo-500 focus:border-indigo-500 transition cursor-pointer ${className}`}
+      disabled={disabled}
+      className={`rounded-lg border border-white/15 bg-neutral-900 font-medium text-neutral-200 outline-none hover:border-indigo-500 focus:border-indigo-500 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${className}`}
     >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value} className="bg-neutral-900 text-neutral-200">
@@ -283,9 +293,6 @@ Modal.confirm = ({
   title,
   content,
   onOk,
-  okText = "OK",
-  cancelText = "Cancel",
-  okButtonProps,
 }: {
   title: React.ReactNode;
   content: React.ReactNode;
@@ -355,4 +362,3 @@ export default {
   Progress,
   Statistic,
 };
-

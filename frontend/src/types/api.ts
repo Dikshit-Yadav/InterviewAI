@@ -82,7 +82,6 @@ export type InterviewReport = {
   tips: string[];
   answers: InterviewReportAnswer[];
 
-  // Enhanced report fields
   cheatingDetected?: boolean;
   violationCount?: number;
   violations?: InterviewViolation[];

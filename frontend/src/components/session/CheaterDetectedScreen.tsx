@@ -1,4 +1,3 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldAlertOutlined, DashboardOutlined, ClockCircleOutlined } from "@/lib/antd-compat/icons";
 
@@ -105,4 +104,3 @@ export default function CheaterDetectedScreen({
     </div>
   );
 }
-

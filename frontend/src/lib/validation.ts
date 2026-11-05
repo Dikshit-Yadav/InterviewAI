@@ -92,6 +92,16 @@ export const profileSchema = z.object({
     .trim()
     .min(1, "Target role is required")
     .max(100, "Target role is too long"),
+  experience: z.string().trim().max(100).optional().default(""),
+  education: z.string().trim().max(200).optional().default(""),
+  bio: z.string().trim().max(1000).optional().default(""),
+  skills: z.array(z.string().trim().max(50)).optional().default([]),
+  strongstSkill: z.string().trim().max(100).optional().default(""),
+  weakestSkill: z.string().trim().max(100).optional().default(""),
+  location: z.string().trim().max(150).optional().default(""),
+  phone: z.string().trim().max(40).optional().default(""),
+  github: z.string().trim().max(300).optional().default(""),
+  linkedin: z.string().trim().max(300).optional().default(""),
 });
 
 const resumeTextSchema = z.string().trim().max(2000, "Keep this under 2,000 characters");
