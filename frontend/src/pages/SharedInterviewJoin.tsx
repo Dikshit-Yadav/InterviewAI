@@ -48,13 +48,27 @@ const formatTime = (milliseconds: number) => {
     : `${minutes}:${String(remainder).padStart(2, "0")}`;
 };
 
+const getStoredSessionString = (key: string) => {
+  try {
+    const storedValue = sessionStorage.getItem(key);
+    if (!storedValue) return "";
+    const parsed: unknown = JSON.parse(storedValue);
+    return typeof parsed === "string" ? parsed : "";
+  } catch (error) {
+    console.warn(`Could not read ${key} from session storage`, error);
+    return "";
+  }
+};
+
 export default function SharedInterviewJoin() {
   const navigate = useNavigate();
   const { token = "" } = useParams();
   const interviewContainerRef = useRef<HTMLDivElement>(null);
 
   const [details, setDetails] = useState<SharedInterviewPublic | null>(null);
-  const [candidateName, setCandidateName] = useState("");
+  const [candidateName, setCandidateName] = useState(() =>
+    getStoredSessionString("name"),
+  );
   const [attempt, setAttempt] = useState<SharedAttempt | null>(null);
   const [questions, setQuestions] = useState<SharedQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -73,31 +87,14 @@ export default function SharedInterviewJoin() {
   const [fullscreenExited, setFullscreenExited] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [autoSubmittedReason, setAutoSubmittedReason] = useState<string | null>(null);
-  const [loggedInUserEmail, setLoggedInUserEmail] = useState("");
+  const [loggedInUserEmail] = useState(() =>
+    getStoredSessionString("email"),
+  );
 
   const submissionLock = useRef(false);
   const attemptRef = useRef(attempt);
   const questionsRef = useRef(questions);
   const answersRef = useRef(answers);
-
-  useEffect(() => {
-    try {
-      const storedName = sessionStorage.getItem("name");
-      if (storedName) {
-        const parsed = JSON.parse(storedName);
-        if (parsed && typeof parsed === "string") {
-          setCandidateName((current) => current || parsed);
-        }
-      }
-      const storedEmail = sessionStorage.getItem("email");
-      if (storedEmail) {
-        const parsedEmail = JSON.parse(storedEmail);
-        if (parsedEmail && typeof parsedEmail === "string") {
-          setLoggedInUserEmail(parsedEmail);
-        }
-      }
-    } catch {}
-  }, []);
 
   useEffect(() => {
     attemptRef.current = attempt;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, CameraOff, CheckCircle2, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 
 type CameraState = "idle" | "requesting" | "granted" | "denied" | "unavailable";
@@ -19,12 +19,13 @@ export default function CameraPermissionCheck({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const onReadyChangeRef = useRef(onReadyChange);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     onReadyChangeRef.current = onReadyChange;
   }, [onReadyChange]);
 
-  const stopCurrentStream = () => {
+  const stopCurrentStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -32,9 +33,10 @@ export default function CameraPermissionCheck({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  };
+  }, []);
 
-  const requestCamera = async () => {
+  const requestCamera = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     stopCurrentStream();
     setState("requesting");
     setErrorMessage(null);
@@ -56,6 +58,11 @@ export default function CameraPermissionCheck({
         audio: false,
       });
 
+      if (requestId !== requestIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
       setState("granted");
       onReadyChangeRef.current?.(true);
@@ -65,6 +72,7 @@ export default function CameraPermissionCheck({
         await videoRef.current.play().catch(() => {});
       }
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       stopCurrentStream();
       const isDenied =
         err instanceof DOMException &&
@@ -93,14 +101,19 @@ export default function CameraPermissionCheck({
       }
       onReadyChangeRef.current?.(false);
     }
-  };
+  }, [stopCurrentStream]);
 
   useEffect(() => {
-    void requestCamera();
+    const requestTimer = window.setTimeout(() => {
+      void requestCamera();
+    }, 0);
+
     return () => {
+      window.clearTimeout(requestTimer);
+      requestIdRef.current += 1;
       stopCurrentStream();
     };
-  }, []);
+  }, [requestCamera, stopCurrentStream]);
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4 text-left">
@@ -181,4 +194,3 @@ export default function CameraPermissionCheck({
     </div>
   );
 }
-

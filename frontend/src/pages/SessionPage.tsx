@@ -62,6 +62,9 @@ export default function SessionPage() {
   const navigate = useNavigate();
   const { interviewId } = useParams();
   const interviewContainerRef = useRef<HTMLDivElement>(null);
+  const handleFinishRef = useRef<
+    ((confirmed?: boolean, autoSubmit?: boolean) => Promise<void>) | null
+  >(null);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -199,7 +202,7 @@ export default function SessionPage() {
             "Tab switch limit reached (3/3)! Submitting interview automatically...",
             { autoClose: 5000 },
           );
-          void handleFinish(true, true);
+          void handleFinishRef.current?.(true, true);
           return 3;
         } else {
           toast.warn(
@@ -334,6 +337,7 @@ export default function SessionPage() {
       setSubmitting(false);
     }
   };
+  handleFinishRef.current = handleFinish;
 
   const handleNext = async () => {
     if (!interviewId || !currentQuestion || submitting) return;
