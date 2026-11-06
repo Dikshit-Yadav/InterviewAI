@@ -85,7 +85,7 @@ export default function ReportPage() {
   const isCheatingFlagged = report.cheatingDetected || isTabSwitchTermination;
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible print:bg-white print:text-black">
       <div className="shrink-0 print:hidden">
         <Nabar />
       </div>
@@ -108,7 +108,7 @@ export default function ReportPage() {
                 title="Save or print report as PDF"
               >
                 <Download className="h-4 w-4 text-brand" />
-                <span>Save Report</span>
+                <span>Download PDF</span>
               </button>
               <button
                 type="button"

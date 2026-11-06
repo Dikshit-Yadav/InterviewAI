@@ -195,7 +195,6 @@ export const submitAnswersSchema = z.object({
         answer: z.string().max(10_000, "An answer cannot exceed 10,000 characters"),
       })
     )
-    .min(1, "Answers are required")
     .max(100, "Too many answers"),
 });
 

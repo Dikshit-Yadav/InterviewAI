@@ -419,7 +419,9 @@ No markdown. No explanation. Only JSON.
 export const generateFinalReportAI = async (answers) => {
   try {
     const prompt = `
-Analyze the following interview answers:
+Analyze only the candidate's actual answers to questions asked in this interview. Do not invent responses, skills, topics, strengths, weaknesses, or recommendations that are not supported by the transcript. If evidence is limited, say so and keep scores conservative.
+
+Interview answers:
 
 ${JSON.stringify(answers)}
 
