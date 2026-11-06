@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
@@ -356,9 +356,23 @@ export default function SharedInterviewJoin() {
   if (error && !attempt)
     return (
       <main className="grid min-h-screen place-items-center bg-background px-6 text-center text-foreground">
-        <div>
-          <h1 className="text-2xl font-semibold">Interview unavailable</h1>
-          <p className="mt-3 text-100">{error}</p>
+        <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Interview Unavailable</h1>
+            <p className="text-sm text-text-secondary">{error}</p>
+          </div>
+          <div className="pt-2">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-brand-hover transition-colors"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Go to Dashboard
+            </Link>
+          </div>
         </div>
       </main>
     );

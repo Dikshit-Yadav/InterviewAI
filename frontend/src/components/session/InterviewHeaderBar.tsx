@@ -53,7 +53,6 @@ export default function InterviewHeaderBar({
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface/90 px-4 sm:px-6 py-3 backdrop-blur-md text-foreground transition-colors">
-      {/* Left: Role and Stage */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-primary-foreground font-bold text-xs tracking-wider shadow-xs">
@@ -78,9 +77,7 @@ export default function InterviewHeaderBar({
         </Tag>
       </div>
 
-      {/* Center: Proctoring Badge & Fullscreen Status */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Violation Count Badge */}
         <Tooltip title={`Recorded security warnings: ${violationCount}/${maxViolations}. Reaching ${maxViolations} terminates the session.`}>
           <div
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all ${
@@ -100,7 +97,6 @@ export default function InterviewHeaderBar({
           </div>
         </Tooltip>
 
-        {/* Fullscreen indicator */}
         <Tooltip title={isFullscreen ? "Fullscreen active" : "Notice: Interview must remain in full-screen mode"}>
           <button
             onClick={onToggleFullscreen}
@@ -118,9 +114,7 @@ export default function InterviewHeaderBar({
         </Tooltip>
       </div>
 
-      {/* Right: Interview Timer and End Button */}
       <div className="flex items-center gap-2.5">
-        {/* Timer */}
         <div
           className={`flex items-center gap-2 rounded-lg border px-3 py-1 font-mono text-sm font-semibold tracking-wider ${
             isUrgent
@@ -133,7 +127,6 @@ export default function InterviewHeaderBar({
           <span>{formatSeconds(remainingSeconds)}</span>
         </div>
 
-        {/* End interview button */}
         <button
           onClick={onFinishInterview}
           disabled={isSubmitting}
