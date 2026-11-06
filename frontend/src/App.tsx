@@ -1,4 +1,7 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import PageSkeleton from "@/components/ui/PageSkeleton";
+import { AuthService } from "@/services/authService";
 import ProtectRoutes from "./components/ProtectRoutes";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -13,11 +16,31 @@ import SharedInterviewJoin from "./pages/SharedInterviewJoin";
 import NotFound from "./pages/NotFound";
 
 function App() {
+  const [loginRedirect, setLoginRedirect] = useState<"checking" | "dashboard" | "login">("checking");
+
+  useEffect(() => {
+    let active = true;
+    AuthService.isme()
+      .then((data) => {
+        if (active) setLoginRedirect(data.isauthenticate && data.user ? "dashboard" : "login");
+      })
+      .catch(() => {
+        if (active) setLoginRedirect("login");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={loginRedirect === "checking" ? <PageSkeleton page="auth" /> : loginRedirect === "dashboard" ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
         <Route path="/signup" element={<Register />} />
 
         {/* Protected routes: Must be logged in to access */}

@@ -1,9 +1,27 @@
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthService } from "@/services/authService";
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AuthService.isme()
+      .then((data) => {
+        if (active) setIsAuthenticated(Boolean(data.isauthenticate && data.user));
+      })
+      .catch(() => {
+        if (active) setIsAuthenticated(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 flex justify-between items-center px-8 py-4 border-b border-border bg-background">
@@ -23,19 +41,29 @@ export default function Navbar() {
 
       <div className="flex items-center gap-4">
         <ThemeToggle />
-        <button
-          className="text-sm text-text-secondary hover:text-text-primary"
-          onClick={() => navigate("/login")}
-        >
-          Login
-        </button>
-
-        <Button
-          className="bg-brand text-primary-foreground hover:bg-brand-hover"
-          onClick={() => navigate("/signup")}
-        >
-          Get started
-        </Button>
+        {isAuthenticated ? (
+          <Button
+            className="bg-brand text-primary-foreground hover:bg-brand-hover"
+            onClick={() => navigate("/dashboard")}
+          >
+            Dashboard
+          </Button>
+        ) : (
+          <>
+            <button
+              className="text-sm text-text-secondary hover:text-text-primary"
+              onClick={() => navigate("/login")}
+            >
+              Login
+            </button>
+            <Button
+              className="bg-brand text-primary-foreground hover:bg-brand-hover"
+              onClick={() => navigate("/signup")}
+            >
+              Get started
+            </Button>
+          </>
+        )}
       </div>
     </nav>
   );
