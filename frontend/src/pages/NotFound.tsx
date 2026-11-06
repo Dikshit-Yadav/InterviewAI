@@ -16,16 +16,16 @@ import ThemeToggle from "@/components/ui/ThemeToggle";
 export default function NotFound() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated] = useState(() => {
+    try {
+      return Boolean(sessionStorage.getItem("name"));
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     document.title = "404 - Page Not Found | InterviewAI";
-    try {
-      const storedName = sessionStorage.getItem("name");
-      setIsAuthenticated(Boolean(storedName));
-    } catch {
-      setIsAuthenticated(false);
-    }
   }, []);
 
   const handleGoBack = () => {

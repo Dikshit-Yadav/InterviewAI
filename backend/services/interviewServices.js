@@ -552,28 +552,43 @@ export const generateReportService = async (interviewId) => {
 
     answers.sort((a, b) => (a.questionId?.order ?? 0) - (b.questionId?.order ?? 0));
 
-    if (!answers.length) {
-        throw new Error("No answers found");
-    }
-
     const existing = await Report.findOne({ interviewId });
     if (existing) return existing;
 
-    const totalScore = answers.reduce(
+    const isNoResponse = (answer) => ["(Not answered)", "(Not Attempted)", "(No answer provided)"].includes(answer);
+    const answeredRows = answers.filter((answer) => answer.userAnswer && !isNoResponse(answer.userAnswer));
+    const totalScore = answeredRows.reduce(
         (sum, a) => sum + (a.aiEvaluation?.score || 0),
         0
     );
 
-    const averageScore = Math.round((totalScore / answers.length) * 10) / 10;
+    const averageScore = answeredRows.length ? Math.round((totalScore / answeredRows.length) * 10) / 10 : 0;
 
     const formattedAnswers = answers.map((a) => ({
         questionId: a.questionId?._id,
-        question: a.questionId?.questionText,
+        question: a.questionText || a.questionId?.questionText,
         userAnswer: a.userAnswer,
         aiEvaluation: a.aiEvaluation,
     }));
 
-    const aiReport = await generateFinalReportAI(formattedAnswers);
+    let aiReport = {
+            summary: "No candidate responses were recorded, so there is not enough evidence to assess interview performance.",
+            techScore: 0, clarityScore: 0, confidenceScore: 0,
+            strongTopics: [], weakTopics: [], learningPath: [], tips: [],
+        };
+    if (answeredRows.length) {
+        try {
+            aiReport = await generateFinalReportAI(
+                formattedAnswers.filter((answer) => answer.userAnswer && !isNoResponse(answer.userAnswer))
+            );
+        } catch (error) {
+            logger.error({ err: error, interviewId }, "Using evidence-based fallback for interview report");
+            aiReport = {
+                ...aiReport,
+                summary: `A report was created from ${answeredRows.length} recorded response${answeredRows.length === 1 ? "" : "s"}. AI summary generation was unavailable, so no additional conclusions are shown.`,
+            };
+        }
+    }
     const session = await InterviewSession.findById(interviewId);
 
     // Calculate multi-criteria scoring including coding performance
@@ -651,82 +666,60 @@ export const submitInterviewService = async (userId, interviewId, answers) => {
     const session = await assertInterviewOwner(userId, interviewId);
 
     if (session.status === "completed") {
-        return generateReportService(interviewId);
+        const existingReport = await Report.findOne({ interviewId });
+        if (existingReport) return existingReport;
     }
     if (session.requiresTechnologyScope) {
         throw httpError(400, "Answer the technology question before finishing the interview");
     }
 
-    let questions = await Question.find({ interviewId }).sort({ order: 1 });
-    if (!questions.length) {
-        const aiQuestions = (session.conversationHistory || []).filter(
-            (m) => m.role === "ai" && (m.type === "INTERVIEW_QUESTION" || m.type === "CODING_QUESTION")
-        );
-        if (aiQuestions.length > 0) {
-            const dynamicDocs = aiQuestions.map((q, idx) => ({
-                interviewId,
-                questionText: q.content,
-                order: idx + 1,
-            }));
-            questions = await Question.insertMany(dynamicDocs);
-        } else {
-            const fallbackDoc = await Question.create({
-                interviewId,
-                questionText: `Technical assessment for ${session.role}`,
-                order: 1,
-            });
-            questions = [fallbackDoc];
-        }
-    }
-
-    const candidateChatMessages = (session.conversationHistory || [])
-        .filter((m) => m.role === "candidate" && (m.type === "ANSWER" || m.type === "CODE_SUBMISSION"));
-
-    const answerByQuestion = new Map();
-    if (Array.isArray(answers)) {
-        answers.forEach((a) => {
-            if (a?.questionId) {
-                answerByQuestion.set(String(a.questionId), typeof a.answer === "string" ? a.answer.trim() : "");
+    const transcript = session.conversationHistory || [];
+    const askedTypes = new Set(["INTERVIEW_QUESTION", "CODING_QUESTION"]);
+    const rows = [];
+    let activeRow = null;
+    for (const message of transcript) {
+        if (message.role === "ai" && askedTypes.has(message.type)) {
+            activeRow = { questionText: message.content, turnId: message.questionId || message.id, answer: "" };
+            rows.push(activeRow);
+        } else if (message.role === "candidate" && ["ANSWER", "CODE_SUBMISSION"].includes(message.type)) {
+            const matchingRow = message.questionId
+                ? [...rows].reverse().find((row) => String(row.turnId) === String(message.questionId))
+                : activeRow;
+            if (matchingRow) {
+                matchingRow.answer = matchingRow.answer
+                    ? `${matchingRow.answer}\n\n${message.content}`
+                    : message.content;
             }
-        });
-    }
-
-    const isEarlyExit =
-        session.status === "terminated" ||
-        (session.violationCount || 0) >= 2 ||
-        session.status === "expired" ||
-        session.cheatingDetected;
-
-    const rows = questions.map((q, idx) => {
-        let answer = answerByQuestion.get(String(q._id)) || "";
-        if (!answer && candidateChatMessages[idx]?.content) {
-            answer = candidateChatMessages[idx].content;
         }
-        return {
-            question: q,
-            answer: answer || "",
-        };
-    });
-
-    if (!rows[0]?.answer && !isEarlyExit) {
-        throw httpError(400, "Please answer the required brief introduction before finishing");
     }
 
-    const answered = rows.filter((r) => r.answer && r.answer.trim());
+    const answered = rows.filter((row) => row.answer.trim());
     let evaluations = [];
 
     if (answered.length > 0) {
-        evaluations = await evaluateAllAnswers(
-            {
-                role: session.role,
-                experience: session.experience,
-                interviewType: session.interviewType,
-            },
-            answered.map((r) => ({ question: r.question.questionText, answer: r.answer }))
-        );
+        try {
+            evaluations = await evaluateAllAnswers(
+                {
+                    role: session.role,
+                    experience: session.experience,
+                    interviewType: session.interviewType,
+                },
+                answered.map((r) => ({ question: r.questionText, answer: r.answer }))
+            );
+        } catch (error) {
+            logger.error({ err: error, interviewId }, "Answer evaluation unavailable; preserving transcript responses");
+            evaluations = answered.map(() => ({
+                score: 0,
+                strengths: "Not evaluated because the AI evaluation service was unavailable.",
+                weaknesses: "No evaluation is available for this response.",
+                correctAnswer: "",
+            }));
+        }
     }
 
     let next = 0;
+    const existingQuestions = await Question.find({ interviewId }).select("_id questionText").lean();
+    const questionIdByText = new Map(existingQuestions.map((question) => [question.questionText, question._id]));
     const docs = rows.map((r) => {
         const hasAns = Boolean(r.answer && r.answer.trim());
         const evaluation = hasAns
@@ -734,14 +727,15 @@ export const submitInterviewService = async (userId, interviewId, answers) => {
             : {
                 score: 0,
                 strengths: "N/A",
-                weaknesses: isEarlyExit ? "Not Attempted (assessment terminated early)." : "No answer was provided.",
+                weaknesses: "No response was recorded for this question.",
                 correctAnswer: ""
               };
 
         return {
-            questionId: r.question._id,
+            questionId: questionIdByText.get(r.questionText) || null,
+            questionText: r.questionText,
             interviewId,
-            userAnswer: r.answer || (isEarlyExit ? "(Not Attempted)" : "(No answer provided)"),
+            userAnswer: r.answer || "(Not answered)",
             aiEvaluation: evaluation,
             skill: hasAns ? evaluation.skill : undefined,
         };
@@ -751,13 +745,13 @@ export const submitInterviewService = async (userId, interviewId, answers) => {
     await Report.deleteMany({ interviewId });
     await Answer.insertMany(docs);
 
-    const report = await generateReportService(interviewId);
-
     if (session.status !== "terminated") {
         session.status = "completed";
     }
     session.submittedAt = new Date();
     await session.save();
+
+    const report = await generateReportService(interviewId);
 
     return report;
 };
@@ -869,6 +863,9 @@ export const processInterviewMessage = async (userId, interviewId, messageText) 
         role: "candidate",
         type: "ANSWER",
         content: messageText.trim(),
+        questionId: [...(session.conversationHistory || [])].reverse().find(
+            (message) => message.role === "ai" && ["INTERVIEW_QUESTION", "CODING_QUESTION"].includes(message.type)
+        )?.questionId || null,
         timestamp: new Date(),
     };
 

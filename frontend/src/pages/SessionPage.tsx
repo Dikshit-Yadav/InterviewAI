@@ -149,6 +149,7 @@ export default function SessionPage() {
             return;
           }
           if (state.status === "completed") {
+            await interviewService.submitInterview(interviewId, []);
             navigate(`/report/${interviewId}`);
             return;
           }
@@ -184,33 +185,9 @@ export default function SessionPage() {
       setSubmitting(true);
 
       try {
-        const validIdRegex = /^[a-f\d]{24}$/i;
-        let candidateAnswers: Array<{ questionId: string; answer: string }> = [];
-
-        if (questions.length > 0) {
-          candidateAnswers = questions.map((q, idx) => {
-            const matched = messages.find(
-              (m) => m.role === "candidate" && (m.questionId === q._id || m.questionId === String(q._id))
-            );
-            const candidateMsgs = messages.filter((m) => m.role === "candidate");
-            const ans = matched?.content || candidateMsgs[idx]?.content || "Assessment concluded.";
-            return {
-              questionId: q._id,
-              answer: ans,
-            };
-          });
-        } else {
-          candidateAnswers = messages
-            .filter((m) => m.role === "candidate" && m.questionId && validIdRegex.test(m.questionId))
-            .map((m) => ({
-              questionId: m.questionId!,
-              answer: m.content,
-            }));
-        }
-
-        if (candidateAnswers.length > 0) {
-          await interviewService.submitInterview(interviewId, candidateAnswers);
-        }
+        // The server constructs report entries from its persisted conversation.
+        // Do not fill gaps from the preloaded question list in the UI.
+        await interviewService.submitInterview(interviewId, []);
 
         const queryParams = new URLSearchParams();
         if (reason) queryParams.set("reason", reason);
@@ -233,7 +210,7 @@ export default function SessionPage() {
         setSubmitting(false);
       }
     },
-    [interviewId, messages, navigate, questions, submitting, violationCount]
+    [interviewId, navigate, submitting, violationCount]
   );
 
   const handleAutoSubmit = useCallback(
