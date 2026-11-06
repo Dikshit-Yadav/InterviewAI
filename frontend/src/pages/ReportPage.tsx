@@ -48,18 +48,34 @@ export default function ReportPage() {
   }, [id]);
 
   if (error) {
+    const isNotFound = error.toLowerCase().includes("not found") || error.toLowerCase().includes("invalid");
     return (
-      <div className="grid min-h-screen place-items-center bg-background px-6 text-center">
-        <div className="space-y-4" role="alert">
-          <p className="text-error font-medium">{error}</p>
-          {id && (
+      <div className="grid min-h-screen place-items-center bg-background px-6 text-center text-foreground">
+        <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm" role="alert">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <ShieldAlert className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">
+            {isNotFound ? "Report Not Found" : "Unable to Load Report"}
+          </h2>
+          <p className="text-sm text-text-secondary">{error}</p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
             <Link
-              to={`/interview/${id}`}
-              className="inline-flex rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-hover"
+              to="/dashboard"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-brand-hover transition-colors"
             >
-              Return to interview
+              <LayoutDashboard className="h-4 w-4" />
+              Go to Dashboard
             </Link>
-          )}
+            {id && !isNotFound && (
+              <Link
+                to={`/interview/${id}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-hover transition-colors"
+              >
+                Return to interview
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -6,21 +6,34 @@ const errorHandler = (err, req, res, _next) => {
       ? err.status
       : 500;
 
-  logger.error(
-    {
-      err: {
-        type: err.name,
-        message: err.message,
-        stack: err.stack,
+  if (statusCode >= 500) {
+    logger.error(
+      {
+        err: {
+          type: err.name,
+          message: err.message,
+          stack: err.stack,
+        },
+        method: req.method,
+        path: req.originalUrl || req.path,
       },
-      method: req.method,
-      path: req.path,
-    },
-    "Unhandled request error"
-  );
+      "Unhandled request error"
+    );
+  } else {
+    logger.warn(
+      {
+        statusCode,
+        message: err.message,
+        method: req.method,
+        path: req.originalUrl || req.path,
+      },
+      "Client request error"
+    );
+  }
 
   res.status(statusCode).json({
     message: statusCode >= 500 ? "Internal server error" : err.message,
+    ...(statusCode === 404 ? { error: "Not Found" } : {}),
   });
 };
 

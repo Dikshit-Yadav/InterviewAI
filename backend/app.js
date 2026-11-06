@@ -11,6 +11,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js"
 import profileRoutes from "./routes/profileRoutes.js";
 import requestLogger from "./middlewares/requestLogger.js";
 import errorHandler from "./middlewares/errorHandler.js";
+import logger from "./utils/logger.js";
 
 
 const app = express();
@@ -38,7 +39,18 @@ app.get("/", (req, res) => {
 });
 
 app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+  logger.warn(
+    {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      ip: req.ip,
+    },
+    "Route not found (404)"
+  );
+  res.status(404).json({
+    message: `Route not found: ${req.method} ${req.originalUrl || req.url}`,
+    error: "Not Found",
+  });
 });
 app.use(errorHandler);
 

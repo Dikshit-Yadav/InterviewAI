@@ -10,6 +10,7 @@ import ReportPage from "./pages/ReportPage";
 import Profile from "./pages/Profile";
 import SharedInterviewBuilder from "./pages/SharedInterviewBuilder";
 import SharedInterviewJoin from "./pages/SharedInterviewJoin";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -29,6 +30,10 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/shared-interviews" element={<SharedInterviewBuilder />} />
         </Route>
+
+        {/* 404 Route handling */}
+        <Route path="/404" element={<NotFound />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

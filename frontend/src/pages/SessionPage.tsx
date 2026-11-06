@@ -87,6 +87,7 @@ export default function SessionPage() {
   const [unprofessionalStrikes, setUnprofessionalStrikes] = useState(0);
   const [isTerminatedUnprofessional, setIsTerminatedUnprofessional] = useState(false);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
+  const [notFoundError, setNotFoundError] = useState<string | null>(null);
 
   // Load and hydrate interview session state from backend
   useEffect(() => {
@@ -163,9 +164,11 @@ export default function SessionPage() {
             }
           }
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Failed to load interview session:", err);
-        toast.error("Could not load interview session. Please refresh.");
+        const errMsg = getErrorMessage(err, "Interview session could not be found.");
+        setNotFoundError(errMsg);
+        toast.error(errMsg);
       } finally {
         setLoadingQuestions(false);
       }
@@ -714,6 +717,42 @@ export default function SessionPage() {
 
   if (loadingQuestions) {
     return <PageSkeleton page="dashboard" />;
+  }
+
+  if (notFoundError) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background px-4 py-8 text-foreground select-none">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xl text-center space-y-5">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+            <ExclamationCircleOutlined className="text-2xl" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Interview Not Found
+            </h1>
+            <p className="text-sm text-text-secondary">
+              {notFoundError || "The requested interview session could not be found or has expired."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-brand-hover transition-colors cursor-pointer"
+            >
+              Back to Dashboard
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/interview")}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+            >
+              Start New Interview
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // 1. CHEATER DETECTED TERMINATION SCREEN
